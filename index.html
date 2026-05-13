@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>قهوة عُمق — نظام التوريد</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&family=Playfair+Display:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F7F3EF;
+  --bg2:#EFE9E2;
+  --s1:#FFFFFF;
+  --s2:#F2EDE7;
+  --br:rgba(125,31,58,0.1);
+  --br2:rgba(125,31,58,0.2);
+  --ac:#7D1F3A;
+  --ac2:#9B2848;
+  --ac-light:#F5E8EC;
+  --tx:#2C1810;
+  --tx2:#5C3D35;
+  --mu:#9E8078;
+  --gn:#2D7A4F;
+  --gn-light:#E8F5EE;
+  --rd:#C0392B;
+  --rd-light:#FDECEA;
+  --bl:#1A5C8A;
+  --bl-light:#E8F2FA;
+  --am:#9B6B00;
+  --am-light:#FEF6E4;
+  --pu:#5B3A8A;
+  --pu-light:#F0EBF8;
+  --shadow:0 2px 12px rgba(125,31,58,0.08);
+  --shadow-lg:0 8px 32px rgba(125,31,58,0.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;font-size:14px}
+
+/* grain texture */
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.4}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid var(--br);background:var(--ac);position:sticky;top:0;z-index:200;height:56px;box-shadow:0 2px 16px rgba(125,31,58,0.2)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo img{height:38px;width:38px;object-fit:contain;mix-blend-mode:screen;opacity:.95}
+.logo-text{font-family:'Playfair Display',serif;font-size:17px;color:#fff;letter-spacing:.04em;font-weight:600}
+.logo-sub{font-size:10px;color:rgba(255,255,255,0.65);letter-spacing:.12em;text-transform:uppercase;margin-top:1px}
+.nav{display:flex;gap:2px}
+.nb{padding:6px 14px;font-size:12px;font-family:inherit;background:none;border:1px solid transparent;border-radius:6px;color:rgba(255,255,255,0.7);cursor:pointer;transition:all .2s;letter-spacing:.02em;font-weight:400}
+.nb:hover{color:#fff;background:rgba(255,255,255,0.12)}
+.nb.active{color:#fff;background:rgba(255,255,255,0.18);border-color:rgba(255,255,255,0.3);font-weight:500}
+.dot{width:6px;height:6px;border-radius:50%;background:#7EE8A2;animation:pulse 2s infinite;display:inline-block;box-shadow:0 0 6px #7EE8A2}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(0.8)}}
+.stxt{font-size:11px;color:rgba(255,255,255,0.65);display:flex;align-items:center;gap:5px}
+.pg{display:none}.pg.active{display:block}
+.wrap{max-width:720px;margin:0 auto;padding:18px 16px}
+
+/* ===== SHARED ===== */
+.datebar{background:var(--s1);border:1px solid var(--br);border-radius:12px;padding:16px 18px;margin-bottom:16px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;box-shadow:var(--shadow)}
+.db-field{display:flex;flex-direction:column;gap:6px}
+.db-label{font-size:10px;color:var(--mu);letter-spacing:.1em;text-transform:uppercase;font-weight:500}
+.db-input{background:var(--bg2);border:1px solid var(--br);border-radius:8px;color:var(--tx);padding:9px 13px;font-family:inherit;font-size:13px;font-weight:500;transition:all .2s}
+.db-input:focus{outline:none;border-color:var(--ac);background:#fff;box-shadow:0 0 0 3px var(--ac-light)}
+.go-btn{padding:10px 22px;background:var(--ac);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;margin-top:auto;letter-spacing:.02em;box-shadow:0 2px 8px rgba(125,31,58,0.3)}
+.go-btn:hover{background:var(--ac2);box-shadow:0 4px 16px rgba(125,31,58,0.4);transform:translateY(-1px)}
+.go-btn:active{transform:translateY(0)}
+.chips{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.chip{background:var(--s1);border:1px solid var(--br);border-radius:10px;padding:10px 16px;font-size:12px;display:flex;gap:8px;align-items:center;box-shadow:var(--shadow);transition:transform .2s}
+.chip:hover{transform:translateY(-1px)}
+.chip-val{font-size:18px;font-weight:700;font-family:'Playfair Display',serif;letter-spacing:-.02em}
+.loadbar{background:var(--s1);border:1px solid var(--br);border-radius:12px;padding:14px 18px;margin-bottom:16px;box-shadow:var(--shadow)}
+.lb-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+.lb-title{font-size:11px;color:var(--mu)}
+.lb-val{font-size:17px;font-weight:600}
+.track{height:8px;background:var(--bg2);border-radius:20px;overflow:hidden;border:1px solid var(--br)}
+.fill{height:100%;border-radius:5px;transition:width .4s}
+.banner{border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;gap:12px;align-items:flex-start;box-shadow:var(--shadow)}
+.b-ok{background:var(--gn-light);border:1px solid rgba(45,122,79,.2)}
+.b-warn{background:var(--am-light);border:1px solid rgba(155,107,0,.2)}
+.b-over{background:var(--rd-light);border:1px solid rgba(192,57,43,.2)}
+.b-icon{font-size:18px;line-height:1;flex-shrink:0;margin-top:1px}
+.b-title{font-size:12px;font-weight:600;margin-bottom:2px}
+.b-sub{font-size:11px;opacity:.8;line-height:1.5}
+.sec-title{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ac);margin-bottom:10px;font-weight:600}
+.card{background:var(--s1);border:1px solid var(--br);border-radius:12px;overflow:hidden;margin-bottom:16px;box-shadow:var(--shadow)}
+.card-header{padding:12px 18px;border-bottom:1px solid var(--br);display:flex;justify-content:space-between;align-items:center;background:var(--bg2)}
+.ch-title{font-size:12px;font-weight:500}
+.ch-meta{font-size:11px;color:var(--mu)}
+.pill{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:500;letter-spacing:.02em}
+.p-con{background:var(--gn-light);color:var(--gn)}
+.p-ben{background:var(--am-light);color:var(--am)}
+.p-both{background:var(--bl-light);color:var(--bl)}
+.p-src{background:var(--ac-light);color:var(--ac)}
+.p-over{background:var(--rd-light);color:var(--rd)}
+.p-today{background:var(--pu-light);color:var(--pu)}
+.p-yday{background:var(--gn-light);color:var(--gn)}
+.p-2day{background:var(--am-light);color:var(--am)}
+.p-conf{background:var(--gn-light);color:var(--gn)}
+.action-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.abtn{padding:8px 16px;border-radius:8px;border:1px solid var(--br);background:var(--s1);color:var(--tx);font-size:12px;font-family:inherit;cursor:pointer;transition:all .2s;font-weight:500;box-shadow:var(--shadow)}
+.abtn:hover{border-color:var(--ac);color:var(--ac);background:var(--ac-light)}
+.abtn.primary{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600;box-shadow:0 2px 8px rgba(125,31,58,0.25)}
+.abtn.primary:hover{background:var(--ac2);box-shadow:0 4px 14px rgba(125,31,58,0.35);transform:translateY(-1px)}
+.abtn.danger{color:var(--rd);border-color:rgba(224,90,90,.3)}
+.abtn.danger:hover{background:rgba(224,90,90,.1)}
+.empty{text-align:center;padding:52px 20px;color:var(--mu)}
+.empty-icon{font-size:30px;margin-bottom:8px}
+.empty-title{font-size:14px;font-weight:600;color:var(--tx2);margin-bottom:4px;font-family:'Playfair Display',serif}
+.empty-sub{font-size:11px}
+.spinner{width:18px;height:18px;border:2px solid var(--br);border-top-color:var(--ac);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading{display:flex;align-items:center;justify-content:center;padding:36px;gap:9px;color:var(--mu);font-size:12px}
+
+/* ===== OPERATIONS ===== */
+.orow{display:flex;align-items:center;padding:11px 18px;border-bottom:1px solid var(--br);gap:10px;transition:all .2s}
+.orow:last-child{border-bottom:none}
+.orow:hover{background:var(--bg2)}
+.orow.confirmed{opacity:.4}
+.orow.excluded{opacity:.35;background:rgba(224,90,90,.04)}
+.cb{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--br2);background:var(--bg2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.cb.checked{background:var(--ac);border-color:var(--ac);box-shadow:0 2px 6px rgba(125,31,58,0.3)}
+.cb.checked::after{content:'✓';font-size:10px;color:var(--bg);font-weight:700}
+.cb.conf-cb{background:rgba(76,175,130,.2);border-color:var(--gn)}
+.cb.conf-cb::after{content:'✓';font-size:10px;color:var(--gn);font-weight:700}
+.or-num{font-size:11px;font-weight:600;color:var(--ac);min-width:24px}
+.or-body{flex:1;min-width:0}
+.or-name{font-size:13px;font-weight:500}
+.or-meta{font-size:11px;color:var(--mu);margin-top:2px;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.or-vol{font-size:13px;font-weight:500;min-width:52px;text-align:left}
+.cbtn{padding:5px 12px;border-radius:20px;border:1px solid var(--br);background:none;color:var(--mu);font-size:11px;font-family:inherit;cursor:pointer;white-space:nowrap;transition:all .2s;font-weight:500}
+.cbtn:hover{border-color:var(--gn);color:var(--gn);background:var(--gn-light)}
+.cbtn.done{border-color:var(--gn);color:var(--gn);background:var(--gn-light)}
+.cbtn.undone{border-color:var(--rd);color:var(--rd);background:var(--rd-light)}
+.stop{display:flex;align-items:flex-start;gap:9px;padding:9px 14px;border-bottom:.5px solid var(--br)}
+.stop:last-child{border-bottom:none}
+.sl{display:flex;flex-direction:column;align-items:center;min-width:10px;padding-top:4px}
+.sdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.sline{width:1px;flex:1;min-height:16px;background:var(--br);margin-top:3px}
+.stop:last-child .sline{display:none}
+.sb{flex:1}
+.sname{font-size:12px;font-weight:500}
+.smeta{font-size:11px;color:var(--mu);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap}
+.stime{font-size:11px;color:var(--mu);white-space:nowrap;padding-top:3px}
+.split-hdr{padding:10px 14px;background:rgba(224,168,90,.07);border-bottom:.5px solid var(--br);display:flex;align-items:center;gap:7px}
+.split-title{font-size:12px;font-weight:600;color:var(--am)}
+.split-trip{padding:12px 14px;border-bottom:.5px solid var(--br)}
+.split-trip:last-child{border-bottom:none}
+.stlabel{font-size:10px;font-weight:600;color:var(--mu);margin-bottom:7px;letter-spacing:.05em;text-transform:uppercase}
+.sstop{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:.5px solid rgba(255,255,255,.04)}
+.sstop:last-child{border-bottom:none}
+.ssdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.ssname{flex:1;font-size:12px}
+.ssvol{font-size:11px;color:var(--mu)}
+.hist-row{display:flex;align-items:center;padding:9px 14px;border-bottom:.5px solid var(--br);gap:10px;font-size:12px}
+.hist-row:last-child{border-bottom:none}
+
+/* ===== SETTINGS ===== */
+.settings-wrap{max-width:900px;margin:0 auto;padding:20px 16px}
+.ss{background:var(--s1);border:1px solid var(--br);border-radius:14px;margin-bottom:16px;overflow:hidden;box-shadow:var(--shadow)}
+.ss-hdr{padding:14px 20px;border-bottom:1px solid var(--br);display:flex;justify-content:space-between;align-items:center;background:var(--bg2)}
+.ss-title{font-size:13px;font-weight:500}
+.ss-sub{font-size:11px;color:var(--mu);margin-top:1px}
+.ss-body{padding:14px 16px}
+.bt{width:100%;border-collapse:collapse;font-size:12px}
+.bt th{text-align:right;padding:6px 8px;font-size:10px;letter-spacing:.08em;color:var(--mu);border-bottom:.5px solid var(--br);font-weight:500;text-transform:uppercase;white-space:nowrap}
+.bt td{padding:7px 6px;border-bottom:.5px solid var(--br);vertical-align:middle}
+.bt tr:last-child td{border-bottom:none}
+.bt input[type=text],.bt input[type=number]{background:var(--s2);border:.5px solid var(--br);border-radius:5px;color:var(--tx);padding:5px 8px;font-family:inherit;font-size:12px;width:100%;transition:border-color .15s}
+.bt input:focus{outline:none;border-color:var(--ac)}
+.ni{width:56px !important}
+.toggle{position:relative;width:34px;height:18px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.tslider{position:absolute;inset:0;background:var(--s2);border:.5px solid var(--br);border-radius:20px;cursor:pointer;transition:.2s}
+.tslider:before{content:'';position:absolute;height:12px;width:12px;left:3px;bottom:2px;background:var(--mu);border-radius:50%;transition:.2s}
+.toggle input:checked+.tslider{background:rgba(200,169,110,.2);border-color:var(--ac)}
+.toggle input:checked+.tslider:before{transform:translateX(16px);background:var(--ac)}
+.add-row{width:100%;padding:9px;background:none;border:.5px dashed var(--br);border-radius:6px;color:var(--mu);font-size:12px;font-family:inherit;cursor:pointer;transition:all .15s;margin-top:8px;text-align:center}
+.add-row:hover{border-color:var(--ac);color:var(--ac)}
+.save-bar{position:sticky;bottom:0;background:var(--s1);border-top:1px solid var(--br);padding:12px 24px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 -4px 16px rgba(125,31,58,0.08)}
+.save-msg{font-size:12px;color:var(--mu)}
+.save-msg.ok{color:var(--gn)}.save-msg.err{color:var(--rd)}
+.del-row{background:none;border:none;color:var(--mu);cursor:pointer;padding:4px;border-radius:4px;font-size:14px;line-height:1;transition:color .15s}
+.del-row:hover{color:var(--rd)}
+
+/* ===== OVERVIEW ===== */
+.trips-layout{display:grid;grid-template-columns:250px 1fr;min-height:calc(100vh - 53px)}
+.sidebar{border-left:1px solid var(--br);padding:14px 0;overflow-y:auto;background:var(--s1)}
+.sb-sec{padding:0 12px;margin-bottom:18px}
+.sb-title{font-size:10px;letter-spacing:.12em;color:var(--mu);text-transform:uppercase;margin-bottom:8px;padding-bottom:5px;border-bottom:.5px solid var(--br)}
+.bc{background:var(--bg2);border:1px solid var(--br);border-radius:10px;padding:10px 12px;margin-bottom:6px;cursor:pointer;transition:all .2s}
+.bc:hover,.bc.sel{border-color:var(--ac);background:var(--ac-light);box-shadow:0 2px 8px rgba(125,31,58,0.1)}
+.bc-top{display:flex;justify-content:space-between;align-items:center}
+.bc-id{font-size:12px;font-weight:600;color:var(--ac)}
+.bc-vol{font-size:12px;color:var(--tx);font-weight:500}
+.bc-name{font-size:10px;color:var(--mu);margin-top:1px}
+.bc-bar-wrap{height:3px;background:rgba(255,255,255,.08);border-radius:2px;margin-top:5px}
+.bc-bar{height:100%;border-radius:2px}
+.bc-meta{display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--mu)}
+.trend-up{color:var(--gn)}.trend-dn{color:var(--rd)}.trend-nt{color:var(--mu)}
+.ca{padding:18px 22px;overflow-y:auto}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.metric{background:var(--s1);border:1px solid var(--br);border-radius:12px;padding:16px;box-shadow:var(--shadow);transition:transform .2s}
+.metric:hover{transform:translateY(-2px)}
+.metric-val{font-size:26px;font-weight:700;color:var(--ac);letter-spacing:-.03em;font-family:'Playfair Display',serif}
+.metric-label{font-size:11px;color:var(--mu);margin-top:2px}
+.tabs{display:flex;gap:2px;margin-bottom:14px;border-bottom:.5px solid var(--br)}
+.tbtn{padding:7px 14px;font-size:12px;font-family:inherit;background:none;border:none;color:var(--mu);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-.5px;transition:all .15s}
+.tbtn.active{color:var(--ac);border-bottom-color:var(--ac)}
+.tpane{display:none}.tpane.active{display:block}
+.days-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.day-card{background:var(--s1);border:1px solid var(--br);border-radius:12px;overflow:hidden;box-shadow:var(--shadow);transition:box-shadow .2s}
+.day-header{padding:13px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--br);background:var(--bg2)}
+.day-name{font-size:13px;font-weight:600}
+.day-meta{font-size:10px;color:var(--mu);margin-top:1px}
+.day-load{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500}
+.load-ok{background:rgba(76,175,130,.15);color:var(--gn)}.load-warn{background:rgba(224,168,90,.15);color:var(--am)}
+.ov-table{width:100%;border-collapse:collapse;font-size:12px}
+.ov-table th{text-align:right;padding:7px 10px;font-size:10px;letter-spacing:.08em;color:var(--mu);border-bottom:.5px solid var(--br);font-weight:500;text-transform:uppercase}
+.ov-table td{padding:9px 10px;border-bottom:.5px solid var(--br);color:var(--tx);vertical-align:middle}
+.ov-table tr:last-child td{border-bottom:none}
+.ov-table tr:hover td{background:var(--s2);cursor:pointer}
+.prog{height:4px;background:rgba(255,255,255,.08);border-radius:2px;width:70px;display:inline-block;vertical-align:middle;overflow:hidden;margin-left:6px}
+.prog-fill{height:100%;border-radius:2px}
+.detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.dm{background:var(--s2);border-radius:8px;padding:12px;text-align:center}
+.dm-val{font-size:19px;font-weight:600;color:var(--ac)}
+.dm-label{font-size:10px;color:var(--mu);margin-top:2px}
+.chart-cont{background:var(--s1);border:.5px solid var(--br);border-radius:9px;padding:14px;margin-bottom:14px}
+.chart-title{font-size:10px;color:var(--mu);margin-bottom:10px;letter-spacing:.05em;text-transform:uppercase}
+.mini-bars{display:flex;align-items:flex-end;gap:3px;height:70px}
+.mini-bar{flex:1;border-radius:2px 2px 0 0;min-width:4px}
+
+/* ===== MOBILE ===== */
+@media(max-width:860px){
+  .trips-layout{grid-template-columns:1fr}
+  .days-grid{grid-template-columns:1fr}
+  .metrics{grid-template-columns:1fr 1fr}
+}
+
+@media(max-width:640px){
+  .topbar{padding:0 14px;height:52px}
+  .logo-text{font-size:15px}
+  .logo-sub{display:none}
+  .logo img{height:30px;width:30px}
+  .nav{gap:1px}
+  .nb{padding:5px 9px;font-size:11px}
+  .stxt .dot{display:none}
+  #stxt{display:none}
+
+  .wrap{padding:12px 12px}
+  .settings-wrap{padding:14px 12px}
+
+  /* datebar موبايل — عمودي */
+  .datebar{flex-direction:column;align-items:stretch;gap:10px;padding:14px}
+  .db-field{flex-direction:row;align-items:center;justify-content:space-between}
+  .db-label{white-space:nowrap;min-width:90px}
+  .db-input{flex:1}
+  .go-btn{width:100%;padding:12px;font-size:14px;margin-top:4px}
+
+  /* chips موبايل */
+  .chips{gap:6px}
+  .chip{padding:8px 10px}
+  .chip-val{font-size:16px}
+
+  /* banner */
+  .banner{padding:11px 13px;gap:8px}
+  .b-icon{font-size:16px}
+  .b-title{font-size:12px}
+  .b-sub{font-size:11px}
+
+  /* orders موبايل */
+  .orow{padding:10px 12px;gap:8px;flex-wrap:wrap}
+  .or-name{font-size:12px}
+  .or-vol{min-width:44px;font-size:12px}
+  .cbtn{padding:4px 10px;font-size:10px}
+  .card-header{padding:10px 14px}
+
+  /* stops */
+  .stop{padding:8px 12px;gap:7px}
+  .sname{font-size:11px}
+  .smeta{font-size:10px}
+  .stime{font-size:10px}
+
+  /* metrics موبايل */
+  .metrics{grid-template-columns:1fr 1fr;gap:8px}
+  .metric{padding:12px}
+  .metric-val{font-size:20px}
+
+  /* action bar */
+  .action-bar{gap:6px}
+  .abtn{padding:7px 12px;font-size:11px}
+
+  /* split */
+  .sstop{padding:4px 0}
+  .ssname{font-size:11px}
+
+  /* settings */
+  .ss-hdr{padding:12px 14px;flex-direction:column;gap:8px;align-items:flex-start}
+  .ss-body{padding:12px 14px;overflow-x:auto}
+  .bt{min-width:700px}
+  .save-bar{padding:10px 14px}
+
+  /* history */
+  .hist-row{flex-wrap:wrap;gap:6px;padding:8px 12px}
+
+  /* sidebar موبايل — يصير horizontal scroll */
+  .trips-layout{display:block}
+  .sidebar{border-left:none;border-bottom:1px solid var(--br);padding:10px 0}
+  .sb-sec{padding:0 12px}
+  .sb-sec .bc-wrap{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+  .bc{min-width:120px;margin-bottom:0!important;display:inline-block}
+
+  /* overview content */
+  .ca{padding:14px 12px}
+  .days-grid{grid-template-columns:1fr;gap:10px}
+
+  /* tabs موبايل */
+  .tabs{overflow-x:auto;padding-bottom:1px}
+  .tbtn{white-space:nowrap;padding:6px 12px;font-size:11px}
+  .nav{overflow-x:auto}
+
+  /* لودبار */
+  .loadbar{padding:11px 14px}
+  .lb-val{font-size:15px}
+}
+
+@media(max-width:380px){
+  .nb{padding:4px 7px;font-size:10px;letter-spacing:0}
+  .logo-text{font-size:13px}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <img src="data:image/png;base64,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RmXmLfrHUWq+3Kpmt84AlY+jawHQgjeGjp0U4yhxVd7blfmRiyklp23LwmCcvdEHM2nHf5PDTeoNi3NrGWK7FNZLxVW+Sjmc1z2xUjY3eSdRvHqRlSkzktPTE8x/x+yCoiI3hEREEREBERAREQEREBERAREQEREBERAREQEREBERAQoiDa1rzuubbZS0uIcLWPEc9GwMpqqsbpKAOGp0Ov3KK4ox/fMSYzocT3TmXTUMsb6WmYC2GJrHBwY0dRIGpUTRHlXBjrO8Q7rHOIqnFuLK/EdZBFBUVr2vfHETstIaG7td/Bq5eDsX1mGbNiG2UtLBPHfaQUk7pCdY2ja3t06fKPHqUaRGfRXp6duExy6zGvuCY6iko46avtlVvqKCrbtRPPWPNP8A/aKWtz2uVvA+a+EcPYfc57XTPgi2nSAHUt4DQHvWoUR530+O87zDusb32PE2Jqq+NtdLbH1RD5YacksL+l2/gTxK7XLrMK+4IdUxUDaett9X/vNBVt24Ze3ToPaogiPSaVmvTMcNq3DOqvjt1RS4XwpYsMzVLSyWqo49ZSDx0Og0+9QrA+Mr/g2+/LFlq9md42Z2SjbjnaTqQ8dPTv4qPojCuDHETG3dt/6c6inMlXacCYZt10eDrXRxbTgTxcBoN/eoThbHd6suYDcbSltyumsjnmpcdHl7S066dQPAKLIhXBjrE7R3fe4VLqy4VNY9oa+omfM4DgC5xcQPau/q8Y1tTlvRYHdSU7aOjrXVjJg4845ztrUEcNPKKjKIzmkTt/J2OGLvNYMRW+908Ucs1DO2djH67Li3oOi2bVZ5SVdTLU1OXuFJ55XF8kj4SXOJ6SSOK1CiMcmGmSd7Q2PhjNqrsFViB0GF7LUUt7nbNNRytPMx7I0DWt6ulfnFmaLL/YKq0jA+G7cahoHhNLDpJHoQdQdOxa6RE8jHvvtyIiI9RERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAWdERBghERAREQEREBERAREQEREDRNERAREQEREBERAREQEREBERAREQE0REDRERAREQEREBERB//2Q==" alt="قهوة عمق">
+    <div>
+      <div class="logo-text">قهوة عُمق</div>
+      <div class="logo-sub">نظام التوريد</div>
+    </div>
+  </div>
+  <div class="nav">
+    <button class="nb active" data-pg="ops" onclick="showPg('ops',this)">العمليات</button>
+    <button class="nb" data-pg="driver" onclick="showPg('driver',this)">🚌 السائق</button>
+    <button class="nb" data-pg="overview" onclick="showPg('overview',this)">الخطة الأسبوعية</button>
+    <button class="nb" data-pg="history" onclick="showPg('history',this)">السجل</button>
+    <button class="nb" data-pg="settings" onclick="showPg('settings',this)">الإعدادات</button>
+  </div>
+  <div class="stxt"><span class="dot"></span><span id="stxt">جاري التحميل...</span></div>
+</div>
+
+<!-- ===== OPS ===== -->
+<div id="pg-ops" class="pg active">
+<div class="wrap">
+  <div class="datebar">
+    <div class="db-field"><div class="db-label">تاريخ التوريد</div><input type="date" id="trip-date" class="db-input"></div>
+    <div class="db-field"><div class="db-label">سعة الباص م³</div><input type="number" id="bus-cap" value="4.5" step="0.5" min="1" max="20" class="db-input" style="width:78px"></div>
+    <div class="db-field"><div class="db-label">ساعات العمل</div><input type="number" id="work-hrs" value="8" step="1" min="4" max="16" class="db-input" style="width:68px"></div>
+    <div class="db-field"><div class="db-label">وقت الانطلاق</div><input type="time" id="start-time" value="07:00" class="db-input"></div>
+    <button class="go-btn" onclick="loadOps()">احسب ↗</button>
+  </div>
+  <div id="ops-out"><div class="empty"><div class="empty-icon">🚌</div><div class="empty-title">اختر تاريخ التوريد</div><div class="empty-sub">ستظهر هنا الطلبات وخطة الرحلة</div></div></div>
+</div>
+</div>
+
+<!-- ===== DRIVER ===== -->
+<div id="pg-driver" class="pg">
+<div class="wrap">
+  <div id="driver-content"></div>
+</div>
+</div>
+
+<!-- ===== OVERVIEW ===== -->
+<div id="pg-overview" class="pg">
+<div class="trips-layout">
+  <div class="sidebar">
+    <div class="sb-sec">
+      <div class="sb-title">الفروع — حجم أسبوعي</div>
+      <div id="branch-list"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+  </div>
+  <div class="ca">
+    <div id="ov-loading" class="loading"><div class="spinner"></div><span>جاري التحميل...</span></div>
+    <div id="ov-content" style="display:none">
+      <div class="metrics">
+        <div class="metric"><div class="metric-val" id="m-br">—</div><div class="metric-label">فروع نشطة</div></div>
+        <div class="metric"><div class="metric-val" id="m-vol">—</div><div class="metric-label">م³ أسبوعياً</div></div>
+        <div class="metric"><div class="metric-val">4</div><div class="metric-label">رحلات أسبوعية</div></div>
+        <div class="metric"><div class="metric-val" id="m-rec">—</div><div class="metric-label">سجل تاريخي</div></div>
+      </div>
+      <div class="tabs">
+        <button class="tbtn active" onclick="switchTab('trips',this)">خطة الرحلات</button>
+        <button class="tbtn" onclick="switchTab('table',this)">جدول الفروع</button>
+        <button class="tbtn" onclick="switchTab('detail',this)">تفاصيل فرع</button>
+      </div>
+      <div id="tab-trips" class="tpane active"><div id="trips-content"></div></div>
+      <div id="tab-table" class="tpane"><div id="table-content"></div></div>
+      <div id="tab-detail" class="tpane"><div id="detail-content"><div style="color:var(--mu);font-size:13px;padding:40px;text-align:center">اختر فرعاً من القائمة</div></div></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ===== HISTORY ===== -->
+<div id="pg-history" class="pg">
+<div class="wrap">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div style="font-size:15px;font-weight:500">سجل التوصيلات</div>
+    <button class="abtn" onclick="loadHistory()">تحديث</button>
+  </div>
+  <div id="hist-out"><div class="loading"><div class="spinner"></div></div></div>
+</div>
+</div>
+
+<!-- ===== SETTINGS ===== -->
+<div id="pg-settings" class="pg">
+<div class="settings-wrap">
+  <div style="margin-bottom:20px"><div style="font-size:17px;font-weight:500">الإعدادات</div><div style="font-size:12px;color:var(--mu);margin-top:3px">تُحفظ محلياً في المتصفح — تطبّق على كل الصفحات</div></div>
+
+  <div class="ss">
+    <div class="ss-hdr"><div><div class="ss-title">الفروع وقواعد التوريد</div><div class="ss-sub">أضف أو عدّل أي فرع</div></div><button class="abtn primary" onclick="addBranch()">+ إضافة فرع</button></div>
+    <div class="ss-body">
+      <table class="bt">
+        <thead><tr><th>الرمز</th><th>الاسم</th><th>موقع / رابط خرائط</th><th>المسافة كم</th><th>استهلاكيات</th><th>بن</th><th>نشط</th><th>مستودع</th><th>مصدر بن</th><th></th></tr></thead>
+        <tbody id="bt-body"></tbody>
+      </table>
+      <button class="add-row" onclick="addBranch()">+ فرع جديد</button>
+    </div>
+  </div>
+
+  <div class="ss">
+    <div class="ss-hdr"><div><div class="ss-title">إعدادات الرحلة</div></div></div>
+    <div class="ss-body" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+      <div><div style="font-size:11px;color:var(--mu);margin-bottom:6px">سعة الباص م³</div><input type="number" id="cfg-cap" value="4.5" step="0.5" class="db-input" style="width:100px" oninput="saveCfg()"></div>
+      <div><div style="font-size:11px;color:var(--mu);margin-bottom:6px">ساعات العمل</div><input type="number" id="cfg-hrs" value="8" step="1" class="db-input" style="width:80px" oninput="saveCfg()"></div>
+      <div><div style="font-size:11px;color:var(--mu);margin-bottom:6px">وقت الانطلاق</div><input type="time" id="cfg-time" value="07:00" class="db-input" style="width:110px" oninput="saveCfg()"></div>
+    </div>
+  </div>
+
+  <div class="ss">
+    <div class="ss-hdr">
+      <div><div class="ss-title">إعدادات الباصات</div><div class="ss-sub">أضف باص أو عدّل إعدادات باص موجود</div></div>
+      <button class="abtn primary" onclick="addBus()">+ إضافة باص</button>
+    </div>
+    <div class="ss-body">
+      <table class="bt" id="bus-table">
+        <thead><tr>
+          <th>الاسم</th>
+          <th>السعة م³</th>
+          <th>نقطة الانطلاق</th>
+          <th>نوع التوريد</th>
+          <th>وقت الانطلاق</th>
+          <th>ساعات العمل</th>
+          <th>أيام العمل</th>
+          <th>نشط</th>
+          <th>اللون</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="bus-tbody"></tbody>
+      </table>
+      <button class="add-row" onclick="addBus()">+ باص جديد</button>
+    </div>
+  </div>
+
+  <div class="ss">
+    <div class="ss-hdr"><div><div class="ss-title">رابط مصدر البيانات (API)</div></div></div>
+    <div class="ss-body">
+      <input type="text" id="cfg-api" class="db-input" style="width:100%" placeholder="https://script.google.com/macros/s/..." oninput="saveCfg()">
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="abtn" onclick="testAPI()">اختبار الاتصال</button>
+        <span id="api-result" style="font-size:11px;color:var(--mu);align-self:center"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="ss">
+    <div class="ss-hdr">
+      <div>
+        <div class="ss-title">Google Maps API Key</div>
+        <div class="ss-sub">لتفعيل الخريطة، أوقات التنقل الحقيقية، وتحسين المسار التلقائي</div>
+      </div>
+      <span id="maps-status" style="font-size:11px;color:var(--mu);padding:4px 10px;border-radius:20px;background:var(--bg2)">غير مفعّل</span>
+    </div>
+    <div class="ss-body">
+      <input type="password" id="cfg-maps-key" class="db-input" style="width:100%;font-family:monospace;font-size:12px" placeholder="AIzaSy..." oninput="saveCfg()">
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="abtn" onclick="testMapsKey()">اختبار المفتاح</button>
+        <button class="abtn" onclick="document.getElementById('cfg-maps-key').type=document.getElementById('cfg-maps-key').type==='password'?'text':'password'">👁 إظهار/إخفاء</button>
+        <span id="maps-result" style="font-size:11px;color:var(--mu);align-self:center"></span>
+      </div>
+      <div style="margin-top:10px;padding:10px 12px;background:var(--bl-light);border-radius:8px;font-size:11px;line-height:1.7;color:var(--bl)">
+        <strong>كيف تحصل على المفتاح (5 دقائق):</strong><br>
+        1. ادخل <a href="https://console.cloud.google.com/google/maps-apis/start" target="_blank" style="color:var(--ac);font-weight:600">console.cloud.google.com/google/maps-apis</a><br>
+        2. أنشئ مشروع جديد (مثلاً "UMQ Coffee")<br>
+        3. فعّل: <em>Maps JavaScript API</em>، <em>Distance Matrix API</em>، <em>Routes API</em>، <em>Directions API</em><br>
+        4. أنشئ API Key وانسخه هنا<br>
+        5. (مهم) قيّد المفتاح بـ HTTP referrer = نطاق GitHub Pages الخاص بك<br>
+        💰 <strong>$200 رصيد مجاني شهرياً من Google</strong> — يكفي ~25,000 طلب
+      </div>
+    </div>
+  </div>
+</div>
+<div class="save-bar">
+  <span class="save-msg" id="save-msg"></span>
+  <div style="display:flex;gap:8px">
+    <button class="abtn danger" onclick="resetCfg()">إعادة ضبط</button>
+    <button class="abtn primary" onclick="applySettings()">حفظ وتطبيق ↗</button>
+  </div>
+</div>
+</div>
+
+<script>
+const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbzU2o6lPazW-8utlOaL02FueiRK34cZmIHq1f1KIVKjq3LIRK0JxL8gzvkBC3672BhOgQ/exec';
+
+// نسبة البن: 4 كراتين لكل م³ استهلاكيات (مبني على بيانات الفرسان كمرجع)
+const BEN_RATIO = 3.99;   // كرتون / م³
+const BOX_VOL   = 0.048;  // م³ / كرتون (30×40×40 سم)
+
+const DEFAULT_BUSES = [
+  {
+    id: 'bus1',
+    name: 'الباص الأول',
+    cap: 4.5,
+    startPoint: '2.3',
+    startPointName: 'الشعلة — المستودع الرئيسي',
+    workDays: [0,1,3,4], // 0=أحد,1=اثنين,3=أربعاء,4=خميس
+    startTime: '07:00',
+    maxHours: 8,
+    type: 'mixed',  // mixed=استهلاكيات+بن, consumables=استهلاكيات فقط, coffee=بن فقط
+    active: true,
+    color: '#C8A96E'
+  },
+  {
+    id: 'bus2',
+    name: 'الباص الثاني',
+    cap: 4.5,
+    startPoint: '2.3',
+    startPointName: 'الشعلة — المستودع الرئيسي',
+    workDays: [0,1,3,4],
+    startTime: '07:00',
+    maxHours: 8,
+    type: 'mixed',
+    active: false,
+    color: '#5A9BE0'
+  }
+];
+
+const DEFAULT_BRANCHES = [
+  {id:'1.1',loc:'https://www.google.com/maps/place/@26.3217239,50.2118034',name:'البستان',   dist:22,con:1,ben:2,active:true,isWarehouse:false,isBenSource:false},
+  {id:'1.2',loc:'https://www.google.com/maps/place/@26.2978575,50.2123764',name:'الشمالية', dist:23,con:1,ben:0,active:true,isWarehouse:false,isBenSource:true},
+  {id:'1.3',loc:'https://www.google.com/maps/place/@26.200950799999998,50.198815700000004',name:'الجسر',    dist:25,con:1,ben:2,active:true,isWarehouse:false,isBenSource:false},
+  {id:'1.4',loc:'https://www.google.com/maps/place/@26.2655075,50.0711872',name:'أجيال',    dist:18,con:1,ben:1,active:true,isWarehouse:false,isBenSource:false},
+  {id:'1.5',loc:'https://www.google.com/maps/place/@26.3231459,50.160840199999996',name:'الدوحة',   dist:20,con:1,ben:1,active:true,isWarehouse:false,isBenSource:false},
+  {id:'1.6',loc:'https://www.google.com/maps/place/@26.154811,50.1384219',name:'جنوب خبر', dist:28,con:2,ben:2,active:true,isWarehouse:false,isBenSource:false},
+  {id:'2.1',loc:'https://www.google.com/maps/place/@26.397824500000002,50.092468499999995',name:'الجامعيين',dist:8, con:1,ben:2,active:true,isWarehouse:false,isBenSource:false},
+  {id:'2.2',loc:'https://www.google.com/maps/place/@26.4585577,50.0852098',name:'الزهور',   dist:14,con:1,ben:2,active:true,isWarehouse:false,isBenSource:false},
+  {id:'2.3',loc:'https://www.google.com/maps/place/@26.3481166,50.0493833',name:'الشعلة',   dist:0, con:1,ben:1,active:true,isWarehouse:true, isBenSource:false},
+  {id:'2.4',loc:'https://www.google.com/maps/place/@26.428435,50.136871799999994',name:'الخالدية', dist:11,con:1,ben:2,active:true,isWarehouse:false,isBenSource:false},
+  {id:'2.5',loc:'https://www.google.com/maps/place/@26.3637555,49.965440799999996',name:'الفرسان',  dist:8, con:1,ben:1,active:true,isWarehouse:false,isBenSource:false},
+  {id:'2.6',loc:'https://www.google.com/maps/place/@26.3683555,50.036222699999996',name:'المنار',   dist:4, con:1,ben:1,active:true,isWarehouse:false,isBenSource:false},
+  {id:'5.1',loc:'https://www.google.com/maps/place/@26.589142199999998,50.021463499999996',name:'القطيف',   dist:28,con:1,ben:1,active:true,isWarehouse:false,isBenSource:false},
+];
+
+const TRIPS_DEF = [
+  {day:'الأحد',color:'#4CAF82',stops:[
+    {id:'2.3',type:'start',label:'انطلاق + تحميل'},
+    {id:'2.1',type:'both', label:'استهلاكيات + مرور'},
+    {id:'2.3',type:'reload',label:'رجعة سريعة + تحميل 2.2 و2.4'},
+    {id:'2.2',type:'con',  label:'استهلاكيات'},
+    {id:'2.4',type:'con',  label:'استهلاكيات'},
+    {id:'1.2',type:'src',  label:'تحميل بن + استلام استهلاكيات'},
+    {id:'2.4',type:'ben',  label:'بن'},{id:'2.1',type:'ben',label:'بن'},{id:'2.2',type:'ben',label:'بن'},
+    {id:'2.3',type:'end',  label:'عودة'},
+  ]},
+  {day:'الاثنين',color:'#5A9BE0',stops:[
+    {id:'2.3',type:'start',label:'انطلاق + تحميل'},
+    {id:'1.2',type:'src',  label:'تحميل بن + استلام استهلاكيات'},
+    {id:'1.6',type:'both', label:'استهلاكيات + بن (الأولى)'},
+    {id:'1.3',type:'both', label:'استهلاكيات + بن'},
+    {id:'1.1',type:'both', label:'استهلاكيات + بن'},
+    {id:'2.3',type:'end',  label:'عودة'},
+  ]},
+  {day:'الأربعاء',color:'#C8A96E',stops:[
+    {id:'2.3',type:'start',label:'انطلاق + تحميل'},
+    {id:'1.2',type:'src',  label:'تحميل بن + استلام استهلاكيات'},
+    {id:'2.2',type:'ben',  label:'بن (دورة ثانية)'},
+    {id:'2.4',type:'ben',  label:'بن (دورة ثانية)'},
+    {id:'5.1',type:'both', label:'استهلاكيات + بن'},
+    {id:'2.1',type:'ben',  label:'بن (دورة ثانية)'},
+    {id:'2.5',type:'con',  label:'استهلاكيات'},
+    {id:'2.6',type:'con',  label:'استهلاكيات'},
+    {id:'2.3',type:'end',  label:'عودة'},
+  ]},
+  {day:'الخميس',color:'#9B7BE0',stops:[
+    {id:'2.3',type:'start',label:'انطلاق + تحميل'},
+    {id:'1.2',type:'src',  label:'تحميل بن + استلام استهلاكيات'},
+    {id:'1.4',type:'both', label:'استهلاكيات + بن'},
+    {id:'1.5',type:'both', label:'استهلاكيات + بن'},
+    {id:'1.3',type:'ben',  label:'بن (دورة ثانية)'},
+    {id:'1.6',type:'both', label:'استهلاكيات (ثانية) + بن (ثانية)'},
+    {id:'1.1',type:'ben',  label:'بن (دورة ثانية)'},
+    {id:'2.3',type:'end',  label:'عودة'},
+  ]},
+];
+
+// ===== CONFIG =====
+let cfg = loadCfg();
+let appData = null;
+let deliveries = {};
+let selectedBranches = new Set();
+let currentOrders = [];
+let selBranch = null;
+
+// ===== GOOGLE MAPS STATE =====
+let gmapsReady = false;
+let gmapsLoading = false;
+let currentMap = null;
+let directionsRenderer = null;
+let distanceMatrixCache = {}; // key: "lat1,lng1|lat2,lng2" → {distance_m, duration_s}
+let currentRouteOrder = null; // ترتيب الفروع المحسّن من Routes API
+let driverActiveTrip = null;  // الرحلة الحالية للسائق
+
+function loadCfg() {
+  try {
+    const s = localStorage.getItem('umq_cfg');
+    if (s) {
+      const c = JSON.parse(s);
+      if (!c.mapsKey) c.mapsKey = '';
+      if (!c.buses)   c.buses   = JSON.parse(JSON.stringify(DEFAULT_BUSES));
+      return c;
+    }
+  } catch(e){}
+  return { branches: JSON.parse(JSON.stringify(DEFAULT_BRANCHES)), buses: JSON.parse(JSON.stringify(DEFAULT_BUSES)), cap:4.5, hrs:8, time:'07:00', api: DEFAULT_API, mapsKey:'' };
+}
+
+function saveCfg() {
+  cfg.cap  = parseFloat(document.getElementById('cfg-cap')?.value) || 4.5;
+  cfg.hrs  = parseFloat(document.getElementById('cfg-hrs')?.value) || 8;
+  cfg.time = document.getElementById('cfg-time')?.value || '07:00';
+  cfg.api  = document.getElementById('cfg-api')?.value?.trim() || DEFAULT_API;
+  const mk = document.getElementById('cfg-maps-key')?.value?.trim();
+  if (mk !== undefined) cfg.mapsKey = mk;
+  localStorage.setItem('umq_cfg', JSON.stringify(cfg));
+}
+
+// helper مفقود — getStableVol: يرجّع الحجم المتوقع لفرع
+function getStableVol(branchId) {
+  if (!appData?.stats) return 0;
+  const s = appData.stats[branchId];
+  if (!s) return 0;
+  return s.recent3m || s.forecast || s.avg || 0;
+}
+
+// استخراج إحداثيات فرع من رابط Google Maps المخزن في loc
+function branchCoords(branchId) {
+  const b = getBr(branchId);
+  if (!b || !b.loc) return null;
+  return extractCoords(b.loc);
+}
+
+function resetCfg() {
+  if (!confirm('إعادة ضبط كل الإعدادات؟')) return;
+  cfg = { branches: JSON.parse(JSON.stringify(DEFAULT_BRANCHES)), cap:4.5, hrs:8, time:'07:00', api: DEFAULT_API };
+  localStorage.setItem('umq_cfg', JSON.stringify(cfg));
+  renderSettingsPage();
+  showMsg('تم إعادة الضبط','ok');
+}
+
+function getBr(id) { return cfg.branches.find(b => b.id === id); }
+function getAPI() { return cfg.api || DEFAULT_API; }
+
+// ===== INIT =====
+const today = new Date();
+const pad = n => String(n).padStart(2,'0');
+document.getElementById('trip-date').value =
+  `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+
+async function init(retry=0) {
+  document.getElementById('stxt').textContent = 'جاري التحميل...';
+  try {
+    const api = getAPI();
+
+    // نجرب نجيب البيانات
+    const r1 = await fetch(api + '?action=data');
+    const j1 = await r1.json();
+
+    if (j1.error) throw new Error(j1.error);
+    appData = j1;
+
+    // نجيب التوصيلات بشكل منفصل (مو ضروري تنجح)
+    try {
+      const r2 = await fetch(api + '?action=deliveries');
+      const j2 = await r2.json();
+      deliveries = {};
+      (j2.deliveries||[]).forEach(d => { deliveries[d.tripId] = d; });
+    } catch(e2) {
+      deliveries = {};
+    }
+
+    document.getElementById('stxt').textContent =
+      'آخر تحديث: ' + new Date(appData.updated).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+
+    renderOV();
+
+  } catch(e) {
+    console.error('init error:', e);
+    if (retry < 2) {
+      // أعد المحاولة بعد 3 ثواني
+      document.getElementById('stxt').textContent = 'إعادة الاتصال...';
+      setTimeout(() => init(retry+1), 3000);
+    } else {
+      document.getElementById('stxt').textContent = 'تعذّر الاتصال — تحقق من الـ API';
+      // أظهر زر إعادة المحاولة
+      const stEl = document.querySelector('.stxt');
+      if (stEl && !document.getElementById('retry-btn')) {
+        const btn = document.createElement('button');
+        btn.id = 'retry-btn';
+        btn.textContent = 'إعادة';
+        btn.style.cssText = 'padding:3px 10px;border-radius:20px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.15);color:#fff;font-size:10px;cursor:pointer;font-family:inherit;margin-right:6px';
+        btn.onclick = () => { btn.remove(); init(0); };
+        stEl.prepend(btn);
+      }
+    }
+  }
+}
+
+function fmtT(m) {
+  const h=Math.floor(m/60), mn=Math.round(m%60), ap=h>=12?'م':'ص';
+  return `${h>12?h-12:h||12}:${String(mn).padStart(2,'0')} ${ap}`;
+}
+function fmtTrend(g) {
+  if (!g && g!==0) return {t:'محدود',c:'trend-nt'};
+  if (g>3)  return {t:'+'+g.toFixed(1)+'%',c:'trend-up'};
+  if (g<-3) return {t:g.toFixed(1)+'%',c:'trend-dn'};
+  return {t:g.toFixed(1)+'%',c:'trend-nt'};
+}
+// حساب توقع كراتين البن لفرع بناءً على حجم الاستهلاكيات
+function calcBenBoxes(branchId) {
+  return Math.round(getStableVol(branchId) * BEN_RATIO);
+}
+
+function calcBenVol(branchId) {
+  return +(calcBenBoxes(branchId) * BOX_VOL).toFixed(3);
+}
+
+function tripId(date,bid) { return date+'_'+bid; }
+function isConf(date,bid) { return deliveries[tripId(date,bid)]?.status==='تم التوصيل'; }
+
+// ===== OPS =====
+function getOrders(targetDate) {
+  if (!appData?.recent) return {};
+  const orders = {};
+
+  // اجمع الطلبات خلال يومين
+  for (let d=0;d<=2;d++) {
+    const dt = new Date(targetDate);
+    dt.setDate(dt.getDate()-d);
+    const tgt = dt.toISOString().split('T')[0];
+    appData.recent.forEach(r => {
+      if (r.t.split('T')[0]===tgt && !orders[r.b])
+        orders[r.b] = {vol:r.v, time:r.t, daysAgo:d};
+    });
+  }
+
+  // احذف الفروع اللي تم توصيلها بعد تاريخ طلبها
+  Object.keys(orders).forEach(bid => {
+    const orderTime = new Date(orders[bid].time).getTime();
+    const wasDelivered = Object.values(deliveries).some(d => {
+      // تحقق إن التأكيد لنفس الفرع
+      const dBranch = d.branchId || (d.tripId ? d.tripId.split('_').slice(1).join('_') : '');
+      if (dBranch !== bid) return false;
+      if (d.status !== 'تم التوصيل') return false;
+      // التأكيد صار بعد وقت الطلب؟
+      const confirmTime = new Date(d.confirmedAt || d.date+'T00:00:00').getTime();
+      return confirmTime >= orderTime;
+    });
+    if (wasDelivered) delete orders[bid];
+  });
+
+  return orders;
+}
+
+async function loadOps() {
+  const dv = document.getElementById('trip-date').value;
+  if (!dv) return;
+
+  document.getElementById('ops-out').innerHTML =
+    '<div class="loading"><div class="spinner"></div><span>جاري التحميل...</span></div>';
+
+  // لو البيانات ما وصلت بعد، نحاول نجيبها أولاً
+  if (!appData) {
+    try {
+      const api = getAPI();
+      const r = await fetch(api + '?action=data');
+      const j = await r.json();
+      if (j.error) throw new Error(j.error);
+      appData = j;
+      try {
+        const r2 = await fetch(api + '?action=deliveries');
+        const j2 = await r2.json();
+        deliveries = {};
+        (j2.deliveries||[]).forEach(d => { deliveries[d.tripId] = d; });
+      } catch(e) { deliveries = {}; }
+      document.getElementById('stxt').textContent =
+        'آخر تحديث: ' + new Date(appData.updated).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+    } catch(e) {
+      document.getElementById('ops-out').innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">⚠️</div>
+          <div class="empty-title">تعذّر الاتصال</div>
+          <div class="empty-sub">تحقق من رابط الـ API في الإعدادات</div>
+          <button class="abtn primary" style="margin-top:14px" onclick="loadOps()">إعادة المحاولة</button>
+        </div>`;
+      return;
+    }
+  }
+
+  selectedBranches = new Set();
+  setTimeout(() => buildOps(dv), 100);
+}
+
+function buildOps(dv) {
+  const raw = getOrders(new Date(dv));
+  currentOrders = Object.entries(raw)
+    .filter(([id]) => { const b=getBr(id); return b&&!b.isWarehouse&&b.active&&b.con>0; })
+    .map(([id,r]) => ({
+      id, name:getBr(id).name, dist:getBr(id).dist,
+      vol:+r.vol.toFixed(3), daysAgo:r.daysAgo, time:r.time,
+      confirmed:isConf(dv,id)
+    }))
+    .sort((a,b) => {
+      if(a.confirmed&&!b.confirmed) return 1;
+      if(!a.confirmed&&b.confirmed) return -1;
+      return b.vol-a.vol;
+    });
+  const active = currentOrders.filter(o=>!o.confirmed);
+  if (selectedBranches.size===0) active.forEach(o=>selectedBranches.add(o.id));
+  const bc = parseFloat(document.getElementById('bus-cap').value)||4.5;
+  const wh = parseFloat(document.getElementById('work-hrs').value)||8;
+  const st = document.getElementById('start-time').value||'07:00';
+  renderOps(dv,bc,wh,st);
+}
+
+function renderOps(dv,bc,wh,st) {
+  const active = currentOrders.filter(o=>!o.confirmed);
+  const sel    = active.filter(o=>selectedBranches.has(o.id));
+  const tv     = sel.reduce((s,o)=>s+o.vol,0);
+  const pct    = Math.min(100,tv/bc*100);
+  const isOver = tv>bc, isNear = !isOver&&tv>bc*.88;
+  const bc2    = isOver?'#E05A5A':isNear?'#E0A85A':'#4CAF82';
+
+  let h='';
+
+  // احسب حجم البن المتوقع للفروع المحددة
+  const benVol = sel.reduce((s,o) => s + calcBenVol(o.id), 0);
+  const totalWithBen = tv + benVol;
+  const pctWithBen = Math.min(100, totalWithBen/bc*100);
+
+  // معلومات الباص النشط لهذا اليوم
+  const dow = new Date(dv).getDay();
+  const activeBuses = (cfg.buses||DEFAULT_BUSES).filter(b => b.active && b.workDays?.includes(dow));
+  if (activeBuses.length > 0) {
+    let busInfo = '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">';
+    activeBuses.forEach(bus => {
+      busInfo += `<div style="background:${bus.color}22;border:.5px solid ${bus.color}44;border-radius:8px;padding:7px 12px;font-size:12px">
+        <span style="color:${bus.color};font-weight:500">${bus.name}</span>
+        <span style="color:var(--mu);margin-right:8px">${bus.cap} م³ · ${BUS_TYPES[bus.type]||bus.type} · انطلاق ${bus.startTime} من ${bus.startPointName||bus.startPoint}</span>
+      </div>`;
+    });
+    busInfo += '</div>';
+    h += busInfo;
+  }
+
+  h+=`<div class="chips">
+    <div class="chip"><span class="chip-val" style="color:var(--ac)">${active.length}</span><span>طلب نشط</span></div>
+    <div class="chip"><span class="chip-val" style="color:var(--gn)">${currentOrders.filter(o=>o.confirmed).length}</span><span>تم التوصيل</span></div>
+    <div class="chip"><span class="chip-val" style="color:${bc2}">${tv.toFixed(2)}</span><span>م³ استهلاكيات</span></div>
+    <div class="chip"><span class="chip-val" style="color:var(--am)">${benVol.toFixed(2)}</span><span>م³ بن</span></div>
+    <div class="chip"><span class="chip-val" style="color:${totalWithBen>bc?'var(--rd)':'var(--tx)'}">${totalWithBen.toFixed(2)}</span><span>م³ إجمالي</span></div>
+  </div>`;
+
+  h+=`<div class="loadbar">
+    <div class="lb-top"><span class="lb-title">الحمولة الإجمالية (استهلاكيات + بن)</span>
+    <span class="lb-val" style="color:${totalWithBen>bc?'var(--rd)':bc2}">${totalWithBen.toFixed(2)} / ${bc} م³</span></div>
+    <div class="track">
+      <div style="display:flex;height:100%">
+        <div style="width:${(tv/bc*100).toFixed(0)}%;background:#4CAF82;border-radius:5px 0 0 5px"></div>
+        <div style="width:${Math.min((benVol/bc*100),(100-tv/bc*100)).toFixed(0)}%;background:#E0A85A"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:5px;font-size:10px;color:var(--mu)">
+      <span style="color:#4CAF82">■ استهلاكيات ${tv.toFixed(2)} م³</span>
+      <span style="color:#E0A85A">■ بن ~${benVol.toFixed(2)} م³ (${sel.reduce((s,o)=>s+calcBenBoxes(o.id),0)} كرتون)</span>
+    </div>
+  </div>`;
+
+  const isOverTotal = totalWithBen > bc;
+  const isNearTotal  = !isOverTotal && totalWithBen > bc*0.88;
+  if (isOverTotal) {
+    const excess = totalWithBen - bc;
+    const excessPct = (excess/bc*100).toFixed(0);
+    h+=`<div style="background:linear-gradient(135deg,#FDECEA 0%,#FCD5D2 100%);border:2px solid var(--rd);border-radius:14px;padding:18px 20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(192,57,43,0.2)">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="font-size:32px;line-height:1">🚨</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:700;color:var(--rd);margin-bottom:4px">تجاوز سعة الباص — الرحلة لا تنطلق هكذا</div>
+          <div style="font-size:13px;color:var(--rd);line-height:1.6">
+            الحمولة <strong>${totalWithBen.toFixed(2)} م³</strong> من أصل <strong>${bc} م³</strong>
+            — زيادة <strong>${excess.toFixed(2)} م³ (+${excessPct}%)</strong>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+            <span style="background:rgba(192,57,43,0.15);color:var(--rd);padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600">استهلاكيات ${tv.toFixed(2)} م³</span>
+            <span style="background:rgba(155,107,0,0.15);color:var(--am);padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600">بن ~${benVol.toFixed(2)} م³</span>
+          </div>
+          <div style="margin-top:10px;font-size:12px;color:var(--rd);font-weight:500">💡 النظام اقترح خطة تقسيم لرحلتين تحت — أو ألغِ بعض الفروع لتقليل الحمولة</div>
+        </div>
+      </div>
+    </div>`;
+  }
+  else if (isNearTotal) h+=`<div class="banner b-warn"><div class="b-icon">⚡</div><div><div class="b-title" style="color:var(--am)">الحمولة قريبة من الحد (${pctWithBen.toFixed(0)}%)</div><div class="b-sub">${totalWithBen.toFixed(2)} من ${bc} م³ — لا يوجد هامش أمان كبير</div></div></div>`;
+  else if (sel.length>0) h+=`<div class="banner b-ok"><div class="b-icon">✅</div><div><div class="b-title" style="color:var(--gn)">الرحلة ضمن السعة</div><div class="b-sub">الباص يشيل كل الطلبات شامل البن (${totalWithBen.toFixed(2)} م³)</div></div></div>`;
+
+  h+=`<div class="action-bar">
+    <button class="abtn" onclick="selAll('${dv}',${bc},${wh},'${st}')">تحديد الكل</button>
+    <button class="abtn" onclick="deselAll('${dv}',${bc},${wh},'${st}')">إلغاء الكل</button>
+    <button class="abtn primary" onclick="buildRoute('${dv}',${bc},${wh},'${st}')">بناء المسار ↗</button>
+    <button class="abtn" id="opt-route-btn" onclick="applyOptimalRoute()" style="background:#fff;color:var(--ac);border:1px solid var(--ac)">🚀 رتّب الأسرع</button>
+    <button class="abtn" onclick="startDriverTrip()" style="background:#fff;color:var(--gn);border:1px solid var(--gn)">🚌 ابدأ رحلة السائق</button>
+  </div>
+  <div id="opt-info" style="font-size:11px;color:var(--gn);margin-bottom:10px;min-height:14px"></div>`;
+
+  h+=`<div class="sec-title">الطلبات الواردة</div>
+  <div class="card"><div class="card-header"><div class="ch-title">طلبات حتى يومين</div>
+    <div class="ch-meta">${active.length} نشط · ${currentOrders.filter(o=>o.confirmed).length} مؤكد</div></div>`;
+
+  if (currentOrders.length===0) {
+    h+=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-title">لا توجد طلبات خلال يومين</div></div>`;
+  } else {
+    currentOrders.forEach((o,i) => {
+      const dp = o.daysAgo===0?'<span class="pill p-today">اليوم</span>':o.daysAgo===1?'<span class="pill p-yday">أمس</span>':'<span class="pill p-2day">أول أمس</span>';
+      const isSel = selectedBranches.has(o.id)&&!o.confirmed;
+      const cbCls = o.confirmed?'conf-cb':isSel?'checked':'';
+      const rowCls = o.confirmed?'orow confirmed':!isSel?'orow excluded':'orow';
+      const cbClick = o.confirmed?'':`onclick="togBr('${o.id}','${dv}',${bc},${wh},'${st}')"`;
+      const btnCls = o.confirmed?'cbtn undone':'cbtn';
+      const btnTxt = o.confirmed?'إلغاء التأكيد':'تأكيد التوصيل ✓';
+      h+=`<div class="${rowCls}" id="row-${o.id}">
+        <div class="cb ${cbCls}" ${cbClick} style="${o.confirmed?'cursor:default':''}"></div>
+        <div class="or-num">${i+1}</div>
+        <div class="or-body">
+          <div class="or-name">${o.id} — ${o.name}</div>
+          <div class="or-meta">${dp}${o.confirmed?'<span class="pill p-conf">✓ تم التوصيل</span>':''}<span>${o.dist} كم</span></div>
+        </div>
+        <div class="or-vol">${o.vol.toFixed(2)} م³</div>
+        <button class="${btnCls}" onclick="confDel('${dv}','${o.id}',${o.vol},${bc},${wh},'${st}')">${btnTxt}</button>
+      </div>`;
+    });
+  }
+  h+='</div>';
+
+  if (sel.length>0) h+= isOver ? splitHTML(sel,bc,wh,st) : routeHTML(sel,st);
+
+  // أضف حاوية الخريطة
+  if (sel.length>0) {
+    h += `<div class="sec-title">الخريطة</div>
+    <div class="card" style="overflow:hidden">
+      <div id="route-map" style="width:100%;height:380px;background:var(--bg2)"></div>
+    </div>`;
+  }
+
+  document.getElementById('ops-out').innerHTML = h;
+
+  // ارسم الخريطة (async)
+  if (sel.length>0) {
+    setTimeout(() => renderRouteMap(sel, 'route-map'), 50);
+  }
+}
+
+function togBr(id,dv,bc,wh,st) {
+  selectedBranches.has(id)?selectedBranches.delete(id):selectedBranches.add(id);
+  renderOps(dv,bc,wh,st);
+}
+function selAll(dv,bc,wh,st) { currentOrders.filter(o=>!o.confirmed).forEach(o=>selectedBranches.add(o.id)); renderOps(dv,bc,wh,st); }
+function deselAll(dv,bc,wh,st) { selectedBranches.clear(); renderOps(dv,bc,wh,st); }
+function buildRoute(dv,bc,wh,st) { selectedBranches=new Set(currentOrders.filter(o=>!o.confirmed).map(o=>o.id)); renderOps(dv,bc,wh,st); }
+
+async function confDel(dv,bid,vol,bc,wh,st) {
+  const br = getBr(bid);
+  const tid = tripId(dv,bid);
+  const already = isConf(dv,bid);
+  try {
+    const params = already
+      ? `action=cancel&tripId=${tid}&date=${dv}&branchId=${bid}`
+      : `action=confirm&date=${dv}&branchId=${bid}&branchName=${encodeURIComponent(br?.name||'')}&volume=${vol}&tripId=${tid}`;
+    const res = await fetch(getAPI()+'?'+params);
+    const r = await res.json();
+    if (r.success) {
+      if (already) delete deliveries[tid];
+      else { deliveries[tid]={status:'تم التوصيل',tripId:tid}; selectedBranches.delete(bid); }
+      buildOps(dv);
+    }
+  } catch(e) { alert('فشل الاتصال — تحقق من الشبكة'); }
+}
+
+function routeHTML(orders,st) {
+  const [sh,sm]=st.split(':').map(Number);
+  let c=sh*60+sm+10;
+  const sorted=[...orders].sort((a,b)=>a.dist-b.dist);
+  let benDone=false;
+  let h=`<div class="sec-title">مسار الرحلة</div><div class="card">
+    <div class="card-header"><div class="ch-title">تسلسل المحطات</div><div class="ch-meta">انطلاق ${fmtT(sh*60+sm)}</div></div>
+    <div class="stop"><div class="sl"><div class="sdot" style="background:var(--mu)"></div><div class="sline"></div></div>
+      <div class="sb"><div class="sname">2.3 — الشعلة</div><div class="smeta"><span class="pill p-src">انطلاق + تحميل</span></div></div>
+      <div class="stime">${fmtT(sh*60+sm)}</div></div>`;
+  sorted.forEach((o,i)=>{
+    if (!benDone&&o.dist>=15) { c+=15; h+=`<div class="stop"><div class="sl"><div class="sdot" style="background:var(--ac)"></div><div class="sline"></div></div>
+      <div class="sb"><div class="sname">1.2 — الشمالية</div><div class="smeta"><span class="pill p-src">تحميل بن</span></div></div>
+      <div class="stime">${fmtT(c)}</div></div>`; benDone=true; }
+    const tr=i===0?o.dist*1.8:Math.abs(o.dist-(sorted[i-1]?.dist||0))*1.5+5;
+    c+=Math.round(tr); const arr=c; c+=20;
+    h+=`<div class="stop"><div class="sl"><div class="sdot" style="background:var(--gn)"></div><div class="sline"></div></div>
+      <div class="sb"><div class="sname">${o.id} — ${o.name}</div>
+      <div class="smeta"><span class="pill p-con">استهلاكيات</span><span>${o.dist} كم</span><span>${o.vol.toFixed(2)} م³</span></div></div>
+      <div class="stime">${fmtT(arr)}</div></div>`;
+  });
+  c+=25;
+  h+=`<div class="stop"><div class="sl"><div class="sdot" style="background:var(--mu)"></div></div>
+    <div class="sb"><div class="sname">2.3 — الشعلة</div><div class="smeta"><span>عودة</span></div></div>
+    <div class="stime">${fmtT(c)}</div></div></div>`;
+  return h;
+}
+
+function splitHTML(orders,bc,wh,st) {
+  const [sh,sm]=st.split(':').map(Number);
+  const start=sh*60+sm;
+  const sorted=[...orders].sort((a,b)=>a.dist-b.dist);
+  const t1=[],t2=[]; let l1=0;
+  // نحسب الحمولة شاملة البن
+  sorted.forEach(o=>{ const total=o.vol+calcBenVol(o.id); if(l1+total<=bc){t1.push(o);l1+=total;}else t2.push(o); });
+  const t1m=30+t1.reduce((s,o)=>s+o.dist*1.8+20,0);
+  const t2s=start+t1m;
+  const t2m=30+t2.reduce((s,o)=>s+o.dist*1.8+20,0);
+  const total=t1m+t2m;
+  const ok=total<=wh*60;
+  let h=`<div class="sec-title">خطة التقسيم</div>
+  <div class="card" style="border-color:rgba(224,168,90,.25)">
+    <div class="split-hdr"><span>⚡</span><div class="split-title">رحلتان — الحمولة تجاوزت ${bc} م³</div></div>
+    <div class="split-trip"><div class="stlabel">الرحلة الأولى — ${fmtT(start)} · ${l1.toFixed(2)} م³</div>
+    <div class="sstop"><div class="ssdot" style="background:var(--mu)"></div><div class="ssname">2.3 انطلاق</div><div class="ssvol">${fmtT(start)}</div></div>`;
+  t1.forEach(o=>{ h+=`<div class="sstop"><div class="ssdot" style="background:var(--gn)"></div><div class="ssname">${o.id} — ${o.name}</div><div class="ssvol">${o.vol.toFixed(2)} م³</div></div>`; });
+  h+=`<div class="sstop"><div class="ssdot" style="background:var(--rd)"></div><div class="ssname">2.3 رجعة + تحميل</div><div class="ssvol">${fmtT(t2s)}</div></div></div>
+    <div class="split-trip"><div class="stlabel">الرحلة الثانية — ${fmtT(t2s)} · ${t2.reduce((s,o)=>s+o.vol,0).toFixed(2)} م³</div>`;
+  t2.forEach(o=>{ h+=`<div class="sstop"><div class="ssdot" style="background:var(--bl)"></div><div class="ssname">${o.id} — ${o.name}</div><div class="ssvol">${o.vol.toFixed(2)} م³</div></div>`; });
+  const end=t2s+t2m;
+  h+=`<div class="sstop"><div class="ssdot" style="background:var(--mu)"></div><div class="ssname">2.3 عودة نهائية</div><div class="ssvol">${fmtT(end)}</div></div></div>
+    <div style="padding:10px 14px;background:${ok?'rgba(76,175,130,.07)':'rgba(224,90,90,.07)'};font-size:12px;color:${ok?'var(--gn)':'var(--rd)'}">
+      ${ok?`✓ تنتهيان ${fmtT(end)} ضمن ${wh} ساعات`:`⚠ تحتاج ${(total/60).toFixed(1)} ساعة — تجاوز ${wh} ساعات`}
+    </div></div>`;
+  return h;
+}
+
+// ===== OVERVIEW =====
+function renderOV() {
+  if (!appData) return;
+  document.getElementById('ov-loading').style.display='none';
+  document.getElementById('ov-content').style.display='block';
+  const {stats,totalRecords} = appData;
+  const active = cfg.branches.filter(b=>b.active&&!b.isWarehouse);
+  const tv = active.reduce((s,b)=>s+(stats[b.id]?.forecast||stats[b.id]?.avg||0),0);
+  document.getElementById('m-br').textContent = active.length;
+  document.getElementById('m-vol').textContent = tv.toFixed(1);
+  document.getElementById('m-rec').textContent = totalRecords.toLocaleString('ar-SA');
+  renderSidebar(stats);
+  renderTrips(stats);
+  renderTable(stats);
+}
+
+function renderSidebar(stats) {
+  const active = cfg.branches.filter(b=>b.active&&!b.isWarehouse);
+  const maxV = Math.max(...active.map(b=>stats[b.id]?.forecast||0),0.1);
+  document.getElementById('branch-list').innerHTML = active
+    .sort((a,b)=>(stats[b.id]?.forecast||0)-(stats[a.id]?.forecast||0))
+    .map(br=>{
+      const s=stats[br.id];
+      const v = appData ? getStableVol(br.id) : (s?.forecast||s?.avg||0);
+      const tr=fmtTrend(s?.growthPct);
+      const bc=s?.growthPct>3?'#4CAF82':s?.growthPct<-3?'#E05A5A':'#5A9BE0';
+      return `<div class="bc ${selBranch===br.id?'sel':''}" onclick="selBr('${br.id}')">
+        <div class="bc-top"><span class="bc-id">${br.id}${br.isBenSource?' ☕':''}</span><span class="bc-vol">${v.toFixed(2)} م³</span></div>
+        <div class="bc-name">${br.name}</div>
+        <div class="bc-bar-wrap"><div class="bc-bar" style="width:${(v/maxV*100).toFixed(0)}%;background:${bc}"></div></div>
+        <div class="bc-meta"><span>${s?.count||0} سجل</span><span class="${tr.c}">${tr.t}</span></div>
+      </div>`;
+    }).join('');
+}
+
+function renderTrips(stats) {
+  const BUS=cfg.cap||4.5;
+  document.getElementById('trips-content').innerHTML='<div class="days-grid">'+TRIPS_DEF.map(trip=>{
+    const cs=trip.stops.filter(s=>['con','both'].includes(s.type)&&s.id!=='2.3'&&s.id!=='1.2');
+    const load=cs.reduce((s,st)=>s+(getStableVol(st.id)||1),0);
+    const lc=load>BUS*.95?'load-warn':'load-ok';
+    const dots={start:'#888780',end:'#888780',reload:'#E05A5A',con:'#4CAF82',ben:'#E0A85A',both:'#5A9BE0',src:'#C8A96E'};
+    const pills={con:'<span class="pill p-con">استهلاكيات</span>',ben:'<span class="pill p-ben">بن</span>',both:'<span class="pill p-both">استهلاكيات + بن</span>',src:'<span class="pill p-src">مصدر بن</span>',reload:'<span class="pill p-over">رجعة تحميل</span>'};
+    return `<div class="day-card"><div class="day-header" style="border-right:3px solid ${trip.color}">
+      <div><div class="day-name" style="color:${trip.color}">${trip.day}</div><div class="day-meta">${cs.length} فروع</div></div>
+      <span class="day-load ${lc}">${load.toFixed(1)}/${BUS} م³</span></div>
+      ${trip.stops.map((s,i)=>{
+        const br=getBr(s.id);
+        const v=stats[s.id]?.forecast||stats[s.id]?.avg;
+        const isLast=i===trip.stops.length-1;
+        const stableV = getStableVol(s.id);
+        const vs=stableV&&!['start','end','reload','src'].includes(s.type)?`<span>${stableV.toFixed(1)} م³</span>`:'';
+        return `<div class="stop"><div class="sl"><div class="sdot" style="background:${dots[s.type]||'#666'}"></div>${!isLast?'<div class="sline"></div>':''}</div>
+          <div class="sb"><div class="sname">${s.id} — ${br?.name||s.id}</div>
+          <div class="smeta">${pills[s.type]||''}${vs}<span>${s.label}</span></div></div></div>`;
+      }).join('')}</div>`;
+  }).join('')+'</div>';
+}
+
+function renderTable(stats) {
+  const active=cfg.branches.filter(b=>b.active&&!b.isWarehouse);
+  const maxV=Math.max(...active.map(b=>stats[b.id]?.forecast||0),0.1);
+  document.getElementById('table-content').innerHTML=`<table class="ov-table">
+    <thead><tr><th>الفرع</th><th>الحجم المتوقع</th><th>آخر 3 أشهر</th><th>الاتجاه</th><th>السجلات</th><th>التوريد</th></tr></thead>
+    <tbody>${active.sort((a,b)=>(stats[b.id]?.forecast||0)-(stats[a.id]?.forecast||0)).map(br=>{
+      const s=stats[br.id];
+      const v=s?.forecast||s?.avg||0;
+      const tr=fmtTrend(s?.growthPct);
+      const bc=s?.growthPct>3?'#4CAF82':s?.growthPct<-3?'#E05A5A':'#5A9BE0';
+      const pct=(v/maxV*100).toFixed(0);
+      return `<tr onclick="selBr('${br.id}')" style="cursor:pointer">
+        <td><strong style="color:var(--ac)">${br.id}</strong> <span style="color:var(--mu)">${br.name}</span></td>
+        <td><div class="prog"><div class="prog-fill" style="width:${pct}%;background:${bc}"></div></div>${v.toFixed(2)} م³</td>
+        <td style="color:var(--mu)">${s?.recent3m?s.recent3m.toFixed(2)+' م³':'—'}</td>
+        <td class="${tr.c}">${tr.t}</td>
+        <td style="color:var(--mu)">${s?.count||0}</td>
+        <td><span class="pill p-con">${br.con}× استهلاكيات</span> <span class="pill p-ben">${br.ben}× بن</span></td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+function selBr(id) {
+  selBranch=id;
+  switchTab('detail',document.querySelectorAll('.tbtn')[2]);
+  document.querySelectorAll('.bc').forEach(c=>c.classList.toggle('sel',c.querySelector('.bc-id')?.textContent.includes(id)));
+  const br=getBr(id);
+  const s=appData?.stats[id];
+  if (!s||!br) return;
+  const tr=fmtTrend(s.growthPct);
+  const recent=(appData.recent||[]).filter(r=>r.b===id).slice(-24);
+  const maxV=Math.max(...recent.map(r=>r.v),0.1);
+  document.getElementById('detail-content').innerHTML=`
+    <div style="margin-bottom:14px"><div style="font-size:19px;font-weight:600;color:var(--ac)">${br.id} — ${br.name}</div>
+    <div style="font-size:11px;color:var(--mu);margin-top:3px">${s.count} سجل · ${br.dist} كم</div></div>
+    <div class="detail-grid">
+      <div class="dm"><div class="dm-val">${(s.forecast||s.avg||0).toFixed(2)}</div><div class="dm-label">م³ توقع أسبوعي</div></div>
+      <div class="dm"><div class="dm-val">${s.recent3m?s.recent3m.toFixed(2):'—'}</div><div class="dm-label">م³ آخر 3 أشهر</div></div>
+      <div class="dm"><div class="dm-val ${tr.c}">${tr.t}</div><div class="dm-label">اتجاه النمو</div></div>
+    </div>
+    <div class="chart-cont"><div class="chart-title">آخر ${recent.length} توريد</div>
+      <div class="mini-bars">${recent.map(r=>`<div class="mini-bar" style="height:${(r.v/maxV*100).toFixed(0)}%;background:var(--ac);opacity:.75" title="${r.v.toFixed(2)} م³"></div>`).join('')}</div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mu);margin-top:5px">
+        <span>${recent.length>0?new Date(recent[0].t).toLocaleDateString('ar-SA'):''}</span>
+        <span>${recent.length>0?new Date(recent[recent.length-1].t).toLocaleDateString('ar-SA'):''}</span>
+      </div></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <span class="pill p-con">استهلاكيات: ${br.con}× أسبوعياً</span>
+      <span class="pill p-ben">بن: ${br.ben}× أسبوعياً</span>
+      ${br.isBenSource?'<span class="pill p-src">مصدر البن</span>':''}
+      ${br.isWarehouse?'<span class="pill p-src">المستودع الرئيسي</span>':''}
+    </div>`;
+}
+
+// ===== HISTORY =====
+async function loadHistory() {
+  document.getElementById('hist-out').innerHTML='<div class="loading"><div class="spinner"></div><span>جاري التحميل...</span></div>';
+  try {
+    const r=await fetch(getAPI()+'?action=deliveries');
+    const d=await r.json();
+    const dl=d.deliveries||[];
+    if (!dl.length) { document.getElementById('hist-out').innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">لا يوجد سجل بعد</div></div>'; return; }
+    const sorted=[...dl].sort((a,b)=>b.date.localeCompare(a.date));
+    document.getElementById('hist-out').innerHTML=`<div class="card">
+      <div class="card-header"><div class="ch-title">إجمالي التوصيلات</div><div class="ch-meta">${dl.length} سجل</div></div>
+      ${sorted.map(d=>`<div class="hist-row">
+        <span style="color:var(--mu);min-width:80px">${d.date}</span>
+        <span style="color:var(--ac);font-weight:600;min-width:32px">${d.branchId}</span>
+        <span style="flex:1">${d.branchName}</span>
+        <span style="min-width:56px">${d.volume?d.volume.toFixed(2)+' م³':'—'}</span>
+        <span class="pill" style="background:rgba(76,175,130,.15);color:var(--gn)">${d.status}</span>
+      </div>`).join('')}
+    </div>`;
+  } catch(e) { document.getElementById('hist-out').innerHTML='<div class="empty"><div class="empty-title">فشل التحميل</div></div>'; }
+}
+
+// ===== SETTINGS =====
+function renderSettingsPage() {
+  document.getElementById('cfg-cap').value  = cfg.cap;
+  document.getElementById('cfg-hrs').value  = cfg.hrs;
+  document.getElementById('cfg-time').value = cfg.time;
+  document.getElementById('cfg-api').value  = cfg.api||DEFAULT_API;
+  const mk = document.getElementById('cfg-maps-key');
+  if (mk) mk.value = cfg.mapsKey || '';
+  updateMapsStatusBadge();
+  renderBT();
+  renderBusTable();
+}
+
+function updateMapsStatusBadge() {
+  const el = document.getElementById('maps-status');
+  if (!el) return;
+  if (gmapsReady) { el.textContent='✓ مفعّل'; el.style.background='var(--gn-light)'; el.style.color='var(--gn)'; }
+  else if (cfg.mapsKey) { el.textContent='مفتاح محفوظ — لم يُحمَّل بعد'; el.style.background='var(--am-light)'; el.style.color='var(--am)'; }
+  else { el.textContent='غير مفعّل'; el.style.background='var(--bg2)'; el.style.color='var(--mu)'; }
+}
+
+async function testMapsKey() {
+  const el = document.getElementById('maps-result');
+  const key = document.getElementById('cfg-maps-key').value.trim();
+  if (!key) { el.textContent='✗ أدخل المفتاح أولاً'; el.style.color='var(--rd)'; return; }
+  el.textContent = 'جاري الاختبار...'; el.style.color='var(--mu)';
+  cfg.mapsKey = key;
+  localStorage.setItem('umq_cfg', JSON.stringify(cfg));
+  try {
+    await loadGoogleMaps(true);
+    el.textContent = '✓ المفتاح صالح — Maps API مفعّل';
+    el.style.color = 'var(--gn)';
+    updateMapsStatusBadge();
+  } catch(e) {
+    el.textContent = '✗ ' + (e.message||'فشل التحقق — راجع المفتاح والـ APIs المفعّلة');
+    el.style.color = 'var(--rd)';
+  }
+}
+
+const DAY_LABELS = ['أحد','اثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
+const BUS_TYPES = {
+  'mixed':       'استهلاكيات + بن',
+  'consumables': 'استهلاكيات فقط',
+  'coffee':      'بن فقط',
+};
+
+function renderBusTable() {
+  if (!cfg.buses) cfg.buses = JSON.parse(JSON.stringify(DEFAULT_BUSES));
+  const startPoints = cfg.branches
+    .filter(b => b.active)
+    .map(b => `<option value="${b.id}" ${''}">${b.id} — ${b.name}</option>`)
+    .join('');
+
+  document.getElementById('bus-tbody').innerHTML = cfg.buses.map((bus, i) => {
+    const daysChecks = [0,1,2,3,4,5,6].map(d => `
+      <label style="font-size:10px;display:inline-flex;align-items:center;gap:2px;margin-left:4px">
+        <input type="checkbox" class="b-day" value="${d}" ${bus.workDays?.includes(d)?'checked':''}>
+        ${DAY_LABELS[d]}
+      </label>`).join('');
+    return `<tr data-bi="${i}">
+      <td><input class="b-name" type="text" value="${bus.name}" placeholder="اسم الباص"></td>
+      <td><input class="b-cap ni" type="number" value="${bus.cap||4.5}" min="1" max="30" step="0.5"></td>
+      <td><select class="b-sp" style="background:var(--s2);border:.5px solid var(--br);border-radius:5px;color:var(--tx);padding:5px 6px;font-family:inherit;font-size:11px;min-width:140px">
+        ${cfg.branches.filter(b=>b.active).map(b=>`<option value="${b.id}" ${bus.startPoint===b.id?'selected':''}>${b.id} — ${b.name}</option>`).join('')}
+      </select></td>
+      <td><select class="b-type" style="background:var(--s2);border:.5px solid var(--br);border-radius:5px;color:var(--tx);padding:5px 6px;font-family:inherit;font-size:11px">
+        ${Object.entries(BUS_TYPES).map(([v,l])=>`<option value="${v}" ${bus.type===v?'selected':''}>${l}</option>`).join('')}
+      </select></td>
+      <td><input class="b-time" type="time" value="${bus.startTime||'07:00'}" style="background:var(--s2);border:.5px solid var(--br);border-radius:5px;color:var(--tx);padding:5px 8px;font-family:inherit;font-size:12px;width:100px"></td>
+      <td><input class="b-hrs ni" type="number" value="${bus.maxHours||8}" min="4" max="16"></td>
+      <td style="min-width:220px"><div style="display:flex;flex-wrap:wrap;gap:2px">${daysChecks}</div></td>
+      <td><label class="toggle"><input class="b-active" type="checkbox" ${bus.active?'checked':''}><span class="tslider"></span></label></td>
+      <td><input class="b-color" type="color" value="${bus.color||'#C8A96E'}" style="width:36px;height:28px;border:none;border-radius:5px;cursor:pointer;background:none"></td>
+      <td><button class="del-row" onclick="delBus(${i})">×</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function collectBusTable() {
+  cfg.buses = Array.from(document.querySelectorAll('#bus-tbody tr')).map((row, i) => {
+    // نستخدم querySelectorAll على الـ row مباشرة بدل class index
+    const days = Array.from(row.querySelectorAll('.b-day:checked')).map(c => parseInt(c.value));
+    return {
+      id:           'bus'+(i+1),
+      name:         row.querySelector('.b-name').value.trim(),
+      cap:          parseFloat(row.querySelector('.b-cap').value)||4.5,
+      startPoint:   row.querySelector('.b-sp').value,
+      startPointName: row.querySelector('.b-sp').selectedOptions[0]?.text||'',
+      type:         row.querySelector('.b-type').value,
+      startTime:    row.querySelector('.b-time').value||'07:00',
+      maxHours:     parseFloat(row.querySelector('.b-hrs').value)||8,
+      workDays:     days,
+      active:       row.querySelector('.b-active').checked,
+      color:        row.querySelector('.b-color').value,
+    };
+  });
+}
+
+function addBus() {
+  collectBusTable();
+  cfg.buses.push({
+    id:'bus'+(cfg.buses.length+1),
+    name:'باص جديد',
+    cap:4.5,
+    startPoint:'2.3',
+    startPointName:'2.3 — الشعلة',
+    type:'mixed',
+    startTime:'07:00',
+    maxHours:8,
+    workDays:[0,1,3,4],
+    active:true,
+    color:'#9B7BE0'
+  });
+  renderBusTable();
+}
+
+function delBus(i) {
+  collectBusTable();
+  if (cfg.buses.length <= 1) { showMsg('لازم يكون في باص واحد على الأقل','err'); return; }
+  cfg.buses.splice(i,1);
+  renderBusTable();
+}
+
+function renderBT() {
+  document.getElementById('bt-body').innerHTML=cfg.branches.map((b,i)=>`
+    <tr data-i="${i}">
+      <td><input class="f-id" type="text" value="${b.id}" style="width:52px"></td>
+      <td><input class="f-name" type="text" value="${b.name}"></td>
+      <td style="min-width:200px">
+        <div style="display:flex;gap:4px;align-items:center">
+          <input class="f-loc" type="text" value="${b.loc||''}" placeholder="رابط خرائط أو lat,lng" style="font-size:11px" onblur="validateLoc(this)">
+          <button onclick="calcDist(${i})" title="احسب المسافة" style="background:var(--s2);border:.5px solid var(--br);border-radius:5px;color:var(--ac);padding:4px 8px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit">↻ احسب</button>
+        </div>
+        <div id="dist-msg-${i}" style="font-size:10px;color:var(--mu);margin-top:2px"></div>
+      </td>
+      <td><input class="f-dist ni" type="number" value="${b.dist}" min="0" step="0.5"></td>
+      <td><input class="f-con ni" type="number" value="${b.con}" min="0" max="7"></td>
+      <td><input class="f-ben ni" type="number" value="${b.ben}" min="0" max="7"></td>
+      <td><label class="toggle"><input class="f-active" type="checkbox" ${b.active?'checked':''}><span class="tslider"></span></label></td>
+      <td><label class="toggle"><input class="f-wh" type="checkbox" ${b.isWarehouse?'checked':''}><span class="tslider"></span></label></td>
+      <td><label class="toggle"><input class="f-bs" type="checkbox" ${b.isBenSource?'checked':''}><span class="tslider"></span></label></td>
+      <td><button class="del-row" onclick="delRow(${i})">×</button></td>
+    </tr>`).join('');
+}
+
+function collectBT() {
+  cfg.branches=Array.from(document.querySelectorAll('#bt-body tr')).map(r=>({
+    id:r.querySelector('.f-id').value.trim(),
+    name:r.querySelector('.f-name').value.trim(),
+    loc:r.querySelector('.f-loc')?.value.trim()||'',
+    dist:parseFloat(r.querySelector('.f-dist').value)||0,
+    con:parseInt(r.querySelector('.f-con').value)||0,
+    ben:parseInt(r.querySelector('.f-ben').value)||0,
+    active:r.querySelector('.f-active').checked,
+    isWarehouse:r.querySelector('.f-wh').checked,
+    isBenSource:r.querySelector('.f-bs').checked,
+  })).filter(b=>b.id);
+}
+
+function addBranch() {
+  collectBT();
+  cfg.branches.push({id:'',name:'',dist:0,con:1,ben:1,active:true,isWarehouse:false,isBenSource:false});
+  renderBT();
+  document.querySelectorAll('#bt-body tr:last-child .f-id')[0]?.focus();
+}
+
+function delRow(i) {
+  collectBT();
+  cfg.branches.splice(i,1);
+  renderBT();
+}
+
+// إحداثيات المستودع 2.3 الشعلة
+const WAREHOUSE_LAT = 26.3481166;
+const WAREHOUSE_LNG = 50.0493833;
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLng = (lng2-lng1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 +
+    Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return +(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1);
+}
+
+function extractCoords(input) {
+  // رابط Google Maps
+  const llMatch = input.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (llMatch) return { lat: parseFloat(llMatch[1]), lng: parseFloat(llMatch[2]) };
+
+  // إحداثيات مباشرة: lat,lng
+  const coordMatch = input.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
+  if (coordMatch) return { lat: parseFloat(coordMatch[1]), lng: parseFloat(coordMatch[2]) };
+
+  // رابط مختصر — نحاول نسحب من الـ URL
+  const dMatch = input.match(/place\/[^@]*@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (dMatch) return { lat: parseFloat(dMatch[1]), lng: parseFloat(dMatch[2]) };
+
+  return null;
+}
+
+async function validateLoc(input) {
+  if (!input.value.trim()) {
+    input.style.borderColor = 'var(--rd)';
+    input.style.background  = 'rgba(224,90,90,0.07)';
+    // أضف تحذير صغير
+    let warn = input.parentElement.parentElement.querySelector('.loc-warn');
+    if (!warn) {
+      warn = document.createElement('div');
+      warn.className = 'loc-warn';
+      warn.style.cssText = 'font-size:10px;color:var(--rd);margin-top:2px';
+      input.parentElement.parentElement.appendChild(warn);
+    }
+    warn.textContent = '⚠ الموقع مطلوب — لا يمكن حفظ الفرع بدونه';
+  } else {
+    input.style.borderColor = '';
+    input.style.background  = '';
+    const warn = input.parentElement.parentElement.querySelector('.loc-warn');
+    if (warn) warn.remove();
+  }
+}
+
+async function calcDist(rowIndex) {
+  collectBT();
+  const branch = cfg.branches[rowIndex];
+  const msgEl  = document.getElementById('dist-msg-'+rowIndex);
+  const loc    = branch?.loc?.trim();
+
+  if (!loc) { msgEl.textContent = 'أدخل رابط أو إحداثيات أولاً'; msgEl.style.color='var(--rd)'; return; }
+
+  msgEl.textContent = 'جاري الحساب...'; msgEl.style.color='var(--mu)';
+
+  // حاول تستخرج الإحداثيات مباشرة
+  const coords = extractCoords(loc);
+
+  if (coords) {
+    const dist = haversine(WAREHOUSE_LAT, WAREHOUSE_LNG, coords.lat, coords.lng);
+    // حدّث الـ dist في الجدول
+    const row = document.querySelectorAll('#bt-body tr')[rowIndex];
+    if (row) row.querySelector('.f-dist').value = dist;
+    collectBT();
+    msgEl.textContent = `✓ ${dist} كم من المستودع (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
+    msgEl.style.color = 'var(--gn)';
+  } else {
+    // رابط مختصر مثل maps.app.goo.gl — نطلب من المستخدم يفتحه ويأخذ الإحداثيات
+    msgEl.innerHTML = '⚠ ما قدرت أستخرج الإحداثيات — افتح الرابط في المتصفح وانسخ الإحداثيات من شريط العنوان (مثال: 26.3481,50.0494)';
+    msgEl.style.color = 'var(--am)';
+  }
+}
+
+function applySettings() {
+  collectBT();
+  collectBusTable();
+
+  // تحقق إن كل فرع عنده موقع
+  const missing = cfg.branches.filter(b => b.active && !b.loc?.trim());
+  if (missing.length > 0) {
+    const names = missing.map(b => b.id + ' ' + b.name).join('، ');
+    showMsg('⚠ هذي الفروع ناقصها موقع: ' + names, 'err');
+    // لوّن الحقول الفارغة
+    document.querySelectorAll('#bt-body tr').forEach(row => {
+      const locInput = row.querySelector('.f-loc');
+      const idInput  = row.querySelector('.f-id');
+      if (locInput && !locInput.value.trim()) {
+        locInput.style.borderColor = 'var(--rd)';
+        locInput.placeholder = '⚠ مطلوب';
+        setTimeout(() => { locInput.style.borderColor = ''; locInput.placeholder = 'رابط خرائط أو lat,lng'; }, 4000);
+      }
+    });
+    return;
+  }
+
+  saveCfg();
+  localStorage.setItem('umq_cfg',JSON.stringify(cfg));
+  if (appData) renderOV();
+  showMsg('تم الحفظ والتطبيق ✓','ok');
+  setTimeout(()=>showPg('ops',document.querySelectorAll('.nb')[0]),600);
+}
+
+function showMsg(m,t) {
+  const el=document.getElementById('save-msg');
+  el.textContent=m; el.className='save-msg '+t;
+  setTimeout(()=>{el.textContent='';el.className='save-msg';},3000);
+}
+
+async function testAPI() {
+  const url=document.getElementById('cfg-api').value.trim();
+  const el=document.getElementById('api-result');
+  el.textContent='جاري الاختبار...'; el.style.color='var(--mu)';
+  try {
+    const r=await fetch(url);
+    const j=await r.json();
+    if (j.totalRecords) { el.textContent='✓ متصل — '+j.totalRecords.toLocaleString('ar-SA')+' سجل'; el.style.color='var(--gn)'; }
+    else { el.textContent='⚠ متصل لكن البيانات فارغة'; el.style.color='var(--am)'; }
+  } catch(e) { el.textContent='✗ فشل الاتصال'; el.style.color='var(--rd)'; }
+}
+
+function switchTab(id,btn) {
+  document.querySelectorAll('.tpane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  if(btn) btn.classList.add('active');
+}
+
+function showPg(id,btn) {
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  const pg = document.getElementById('pg-'+id);
+  if (pg) pg.classList.add('active');
+  if (btn) btn.classList.add('active');
+  else { const nb = document.querySelector('.nb[data-pg="'+id+'"]'); if (nb) nb.classList.add('active'); }
+  if (id==='settings') renderSettingsPage();
+  if (id==='history')  loadHistory();
+  if (id==='overview' && appData) renderOV();
+  if (id==='driver')   renderDriverPage();
+}
+
+// ===================================================================
+// ===== GOOGLE MAPS INTEGRATION =====================================
+// ===================================================================
+
+// تحميل Google Maps JS API (lazy — مرة وحدة فقط)
+function loadGoogleMaps(force=false) {
+  return new Promise((resolve, reject) => {
+    if (gmapsReady && !force) return resolve(window.google);
+    if (gmapsLoading && !force) {
+      // انتظر التحميل الحالي
+      const check = setInterval(() => {
+        if (gmapsReady) { clearInterval(check); resolve(window.google); }
+      }, 200);
+      setTimeout(() => { clearInterval(check); reject(new Error('انتهت مهلة التحميل')); }, 15000);
+      return;
+    }
+    const key = cfg.mapsKey?.trim();
+    if (!key) return reject(new Error('لم يتم تعيين Google Maps API Key — أضفه في الإعدادات'));
+
+    // أزل أي سكربت قديم لو force
+    if (force) {
+      document.querySelectorAll('script[data-gmaps]').forEach(s=>s.remove());
+      gmapsReady = false; gmapsLoading = false;
+      delete window.google;
+    }
+
+    gmapsLoading = true;
+    window.__umqMapsLoaded = () => {
+      gmapsReady = true; gmapsLoading = false;
+      updateMapsStatusBadge();
+      resolve(window.google);
+    };
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places,geometry&callback=__umqMapsLoaded&language=ar&region=SA`;
+    s.async = true; s.defer = true;
+    s.dataset.gmaps = '1';
+    s.onerror = () => { gmapsLoading=false; reject(new Error('فشل تحميل Maps API — تحقق من المفتاح')); };
+    document.head.appendChild(s);
+  });
+}
+
+// Distance Matrix — يجيب وقت ومسافة فعلية بين نقطتين (مع كاش)
+async function getRealTravelTime(fromCoords, toCoords) {
+  if (!fromCoords || !toCoords) return null;
+  const key = `${fromCoords.lat.toFixed(5)},${fromCoords.lng.toFixed(5)}|${toCoords.lat.toFixed(5)},${toCoords.lng.toFixed(5)}`;
+  if (distanceMatrixCache[key]) return distanceMatrixCache[key];
+
+  if (!gmapsReady) {
+    try { await loadGoogleMaps(); } catch(e) { return null; }
+  }
+  return new Promise((resolve) => {
+    const svc = new google.maps.DistanceMatrixService();
+    svc.getDistanceMatrix({
+      origins: [fromCoords],
+      destinations: [toCoords],
+      travelMode: 'DRIVING',
+      drivingOptions: { departureTime: new Date(), trafficModel: 'BEST_GUESS' },
+      unitSystem: google.maps.UnitSystem.METRIC,
+    }, (resp, status) => {
+      if (status !== 'OK' || !resp?.rows?.[0]?.elements?.[0]) { resolve(null); return; }
+      const el = resp.rows[0].elements[0];
+      if (el.status !== 'OK') { resolve(null); return; }
+      const out = {
+        distance_m: el.distance.value,
+        duration_s: (el.duration_in_traffic?.value || el.duration.value),
+        distance_text: el.distance.text,
+        duration_text: (el.duration_in_traffic?.text || el.duration.text),
+      };
+      distanceMatrixCache[key] = out;
+      try { localStorage.setItem('umq_dm_cache', JSON.stringify(distanceMatrixCache)); } catch(e){}
+      resolve(out);
+    });
+  });
+}
+
+// تحميل الكاش عند بدء التشغيل
+try {
+  const c = localStorage.getItem('umq_dm_cache');
+  if (c) distanceMatrixCache = JSON.parse(c);
+} catch(e){}
+
+// ===================================================================
+// ===== MAP RENDERING ===============================================
+// ===================================================================
+
+async function renderRouteMap(stops, containerId='route-map') {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (!cfg.mapsKey) {
+    container.innerHTML = `<div style="padding:30px;text-align:center;color:var(--mu);font-size:12px">
+      🗺️ أضف Google Maps API Key في <a href="#" onclick="showPg('settings',document.querySelectorAll('.nb')[3]);return false" style="color:var(--ac)">الإعدادات</a> لعرض الخريطة
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = '<div class="loading"><div class="spinner"></div><span>جاري تحميل الخريطة...</span></div>';
+
+  try {
+    await loadGoogleMaps();
+  } catch(e) {
+    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--rd);font-size:12px">⚠ ${e.message}</div>`;
+    return;
+  }
+
+  container.innerHTML = '<div id="gmap-inner" style="width:100%;height:100%;border-radius:10px"></div>';
+  const mapEl = document.getElementById('gmap-inner');
+
+  // ابني قائمة النقاط: مستودع → فروع → مستودع
+  const wh = { lat: WAREHOUSE_LAT, lng: WAREHOUSE_LNG };
+  const points = [wh, ...stops.map(o => branchCoords(o.id)).filter(Boolean), wh];
+
+  currentMap = new google.maps.Map(mapEl, {
+    center: wh,
+    zoom: 11,
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: true,
+    styles: [
+      { elementType:'labels.text.fill', stylers:[{color:'#5C3D35'}] },
+      { featureType:'water', stylers:[{color:'#D4E4F0'}] },
+      { featureType:'landscape', stylers:[{color:'#F7F3EF'}] },
+    ]
+  });
+
+  // ارسم المسار باستخدام DirectionsService
+  const ds = new google.maps.DirectionsService();
+  directionsRenderer = new google.maps.DirectionsRenderer({
+    map: currentMap,
+    suppressMarkers: true,
+    polylineOptions: { strokeColor:'#7D1F3A', strokeWeight:4, strokeOpacity:0.85 }
+  });
+
+  if (points.length >= 2) {
+    const waypoints = points.slice(1, -1).map(p => ({ location: p, stopover: true }));
+    ds.route({
+      origin: points[0],
+      destination: points[points.length-1],
+      waypoints,
+      travelMode: 'DRIVING',
+      drivingOptions: { departureTime: new Date(), trafficModel: 'BEST_GUESS' },
+    }, (res, status) => {
+      if (status === 'OK') directionsRenderer.setDirections(res);
+    });
+  }
+
+  // أضف markers مرقّمة على كل فرع
+  new google.maps.Marker({
+    map: currentMap, position: wh,
+    label: { text:'W', color:'#fff', fontWeight:'600' },
+    title: 'المستودع — الشعلة',
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 14, fillColor:'#2C1810', fillOpacity:1, strokeColor:'#fff', strokeWeight:2 }
+  });
+  stops.forEach((o, i) => {
+    const c = branchCoords(o.id);
+    if (!c) return;
+    new google.maps.Marker({
+      map: currentMap, position: c,
+      label: { text:String(i+1), color:'#fff', fontWeight:'700', fontSize:'12px' },
+      title: `${o.id} — ${o.name} (${o.vol?.toFixed(2)||'?'} م³)`,
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 14, fillColor:'#7D1F3A', fillOpacity:1, strokeColor:'#fff', strokeWeight:2 }
+    });
+  });
+
+  // اضبط الـ bounds لتشمل كل النقاط
+  const bounds = new google.maps.LatLngBounds();
+  points.forEach(p => bounds.extend(p));
+  currentMap.fitBounds(bounds, { top:50, right:30, bottom:30, left:30 });
+}
+
+// ===================================================================
+// ===== ROUTE OPTIMIZATION (Routes API via DirectionsService) =======
+// ===================================================================
+
+async function optimizeRouteOrder(stops) {
+  if (!cfg.mapsKey) {
+    alert('يحتاج Google Maps API Key — أضفه في الإعدادات');
+    return null;
+  }
+  try { await loadGoogleMaps(); } catch(e) { alert(e.message); return null; }
+  if (stops.length < 2) return stops;
+
+  return new Promise((resolve) => {
+    const wh = { lat: WAREHOUSE_LAT, lng: WAREHOUSE_LNG };
+    const ds = new google.maps.DirectionsService();
+    const waypoints = stops.map(o => {
+      const c = branchCoords(o.id);
+      return c ? { location: c, stopover: true } : null;
+    }).filter(Boolean);
+
+    if (waypoints.length !== stops.length) {
+      alert('بعض الفروع ناقصها إحداثيات — تحقق من الإعدادات');
+      resolve(null); return;
+    }
+
+    ds.route({
+      origin: wh, destination: wh,
+      waypoints, optimizeWaypoints: true,
+      travelMode: 'DRIVING',
+      drivingOptions: { departureTime: new Date(), trafficModel: 'BEST_GUESS' }
+    }, (res, status) => {
+      if (status !== 'OK') { alert('فشل تحسين المسار: '+status); resolve(null); return; }
+      const order = res.routes[0].waypoint_order;
+      const reordered = order.map(i => stops[i]);
+      // احسب المدة الإجمالية
+      const totalSec = res.routes[0].legs.reduce((s,l) => s + (l.duration_in_traffic?.value || l.duration.value), 0);
+      const totalKm  = res.routes[0].legs.reduce((s,l) => s + l.distance.value, 0) / 1000;
+      currentRouteOrder = { stops: reordered, totalMin: Math.round(totalSec/60), totalKm: +totalKm.toFixed(1) };
+      resolve(currentRouteOrder);
+    });
+  });
+}
+
+async function applyOptimalRoute() {
+  const active = currentOrders.filter(o => !o.confirmed && selectedBranches.has(o.id));
+  if (active.length === 0) { alert('اختر فروع أولاً'); return; }
+
+  const btn = document.getElementById('opt-route-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'جاري التحسين...'; }
+
+  const result = await optimizeRouteOrder(active);
+  if (btn) { btn.disabled = false; btn.textContent = '🚀 رتّب الأسرع'; }
+
+  if (!result) return;
+
+  // أعد ترتيب currentOrders حسب الترتيب الأمثل (المؤكدة في الآخر)
+  const confirmed = currentOrders.filter(o => o.confirmed);
+  const orderedIds = result.stops.map(s => s.id);
+  const reordered = orderedIds.map(id => currentOrders.find(o => o.id===id)).filter(Boolean);
+  currentOrders = [...reordered, ...confirmed];
+
+  const dv = document.getElementById('trip-date').value;
+  const bc = parseFloat(document.getElementById('bus-cap').value)||4.5;
+  const wh = parseFloat(document.getElementById('work-hrs').value)||8;
+  const st = document.getElementById('start-time').value||'07:00';
+  renderOps(dv, bc, wh, st);
+
+  // أظهر النتيجة
+  setTimeout(() => {
+    const info = document.getElementById('opt-info');
+    if (info) info.innerHTML = `✓ مسار أمثل: ${result.totalKm} كم · ~${result.totalMin} دقيقة (شامل الزحمة الحالية)`;
+  }, 100);
+}
+
+// ===================================================================
+// ===== DRIVER TAB ==================================================
+// ===================================================================
+
+function startDriverTrip() {
+  const active = currentOrders.filter(o => !o.confirmed && selectedBranches.has(o.id));
+  if (active.length === 0) { alert('اختر فروع للرحلة أولاً'); return; }
+  const dv = document.getElementById('trip-date').value;
+  driverActiveTrip = {
+    date: dv,
+    stops: active.map(o => ({ ...o, done: false })),
+    currentIdx: 0,
+    startedAt: new Date().toISOString(),
+  };
+  localStorage.setItem('umq_driver_trip', JSON.stringify(driverActiveTrip));
+  showPg('driver', document.querySelector('.nb[data-pg="driver"]'));
+}
+
+function loadDriverTrip() {
+  try {
+    const s = localStorage.getItem('umq_driver_trip');
+    if (s) driverActiveTrip = JSON.parse(s);
+  } catch(e){}
+}
+
+function renderDriverPage() {
+  const c = document.getElementById('driver-content');
+  if (!c) return;
+  loadDriverTrip();
+
+  if (!driverActiveTrip || !driverActiveTrip.stops?.length) {
+    c.innerHTML = `<div class="empty" style="padding:60px 20px">
+      <div class="empty-icon" style="font-size:48px">🚌</div>
+      <div class="empty-title" style="font-size:18px">لا توجد رحلة نشطة</div>
+      <div class="empty-sub">ابدأ رحلة من تبويب العمليات</div>
+      <button class="abtn primary" style="margin-top:14px" onclick="showPg('ops',document.querySelectorAll('.nb')[0])">اذهب للعمليات</button>
+    </div>`;
+    return;
+  }
+
+  const trip = driverActiveTrip;
+  const remaining = trip.stops.filter(s => !s.done);
+  const current = remaining[0];
+  const next = remaining[1];
+
+  if (!current) {
+    c.innerHTML = `<div class="empty" style="padding:60px 20px">
+      <div class="empty-icon" style="font-size:48px">🎉</div>
+      <div class="empty-title" style="font-size:18px">اكتملت الرحلة!</div>
+      <div class="empty-sub">${trip.stops.length} فروع تم توصيلها بنجاح</div>
+      <button class="abtn primary" style="margin-top:14px" onclick="endDriverTrip()">إنهاء الرحلة</button>
+    </div>`;
+    return;
+  }
+
+  const done = trip.stops.length - remaining.length;
+  const pct = Math.round(done/trip.stops.length*100);
+  const currentCoords = branchCoords(current.id);
+  const navUrl = currentCoords
+    ? `https://www.google.com/maps/dir/?api=1&destination=${currentCoords.lat},${currentCoords.lng}&travelmode=driving`
+    : (getBr(current.id)?.loc || '#');
+
+  c.innerHTML = `
+    <div style="background:linear-gradient(135deg,var(--ac) 0%,var(--ac2) 100%);color:#fff;padding:20px 18px;border-radius:14px;margin-bottom:14px;box-shadow:var(--shadow-lg)">
+      <div style="font-size:11px;opacity:.8;letter-spacing:.1em">الوجهة الحالية · ${done+1} من ${trip.stops.length}</div>
+      <div style="font-size:32px;font-weight:700;margin:6px 0 4px;font-family:'Playfair Display',serif">${current.id}</div>
+      <div style="font-size:20px;opacity:.95">${current.name}</div>
+      <div style="font-size:13px;opacity:.85;margin-top:6px">${current.dist} كم · ${current.vol?.toFixed(2)||'?'} م³</div>
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <a href="${navUrl}" target="_blank" style="flex:1;min-width:140px;text-align:center;background:#fff;color:var(--ac);padding:14px;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.15)">🧭 افتح الملاحة</a>
+        <button onclick="markCurrentDelivered()" style="flex:1;min-width:140px;background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.5);color:#fff;padding:14px;border-radius:10px;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer">✓ وصلت</button>
+      </div>
+    </div>
+
+    ${next ? `<div class="card" style="margin-bottom:10px">
+      <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:10px;color:var(--mu);letter-spacing:.1em">الوجهة القادمة</div>
+          <div style="font-size:15px;font-weight:600;margin-top:2px"><span style="color:var(--ac)">${next.id}</span> — ${next.name}</div>
+        </div>
+        <div style="text-align:left">
+          <div style="font-size:11px;color:var(--mu)">المسافة</div>
+          <div style="font-size:14px;font-weight:600">${next.dist} كم</div>
+        </div>
+      </div>
+    </div>` : ''}
+
+    <div class="loadbar">
+      <div class="lb-top"><span class="lb-title">تقدّم الرحلة</span><span class="lb-val">${done}/${trip.stops.length} · ${pct}%</span></div>
+      <div class="track"><div class="fill" style="width:${pct}%;background:var(--gn)"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="ch-title">قائمة المحطات</div><div class="ch-meta">${remaining.length} باقي</div></div>
+      ${trip.stops.map((s,i) => `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--br);${s.done?'opacity:.5':''}">
+        <div style="width:24px;height:24px;border-radius:50%;background:${s.done?'var(--gn)':'var(--bg2)'};color:${s.done?'#fff':'var(--tx)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">${s.done?'✓':i+1}</div>
+        <div style="flex:1"><span style="font-weight:600;color:var(--ac)">${s.id}</span> ${s.name}</div>
+        <div style="font-size:11px;color:var(--mu)">${s.dist} كم</div>
+      </div>`).join('')}
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="abtn" onclick="endDriverTrip()" style="flex:1">إنهاء الرحلة</button>
+    </div>
+  `;
+}
+
+async function markCurrentDelivered() {
+  if (!driverActiveTrip) return;
+  const remaining = driverActiveTrip.stops.filter(s => !s.done);
+  const current = remaining[0];
+  if (!current) return;
+
+  // علّم done
+  const idx = driverActiveTrip.stops.findIndex(s => s.id === current.id && !s.done);
+  if (idx >= 0) driverActiveTrip.stops[idx].done = true;
+  driverActiveTrip.stops[idx].deliveredAt = new Date().toISOString();
+  localStorage.setItem('umq_driver_trip', JSON.stringify(driverActiveTrip));
+
+  // أرسل تأكيد للـ Sheets
+  const dv = driverActiveTrip.date;
+  try {
+    const tid = tripId(dv, current.id);
+    const params = `action=confirm&date=${dv}&branchId=${current.id}&branchName=${encodeURIComponent(current.name)}&volume=${current.vol||0}&tripId=${tid}`;
+    await fetch(getAPI()+'?'+params);
+    deliveries[tid] = { status:'تم التوصيل', tripId:tid };
+  } catch(e) {}
+
+  renderDriverPage();
+}
+
+function endDriverTrip() {
+  if (!confirm('إنهاء الرحلة الحالية؟')) return;
+  driverActiveTrip = null;
+  localStorage.removeItem('umq_driver_trip');
+  renderDriverPage();
+}
+
+init();
+setInterval(init, 60*60*1000);
+
+// حاول تحميل Maps لو فيه مفتاح محفوظ
+if (cfg.mapsKey) {
+  loadGoogleMaps().catch(()=>{}).finally(()=>updateMapsStatusBadge());
+}
+
+// لو فيه رحلة سائق محفوظة، أعد تحميلها
+loadDriverTrip();
+</script>
+</body>
+</html>
