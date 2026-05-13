@@ -1565,7 +1565,7 @@ async function getRealTravelTime(fromCoords, toCoords) {
       origins: [fromCoords],
       destinations: [toCoords],
       travelMode: 'DRIVING',
-      drivingOptions: { departureTime: new Date(), trafficModel: 'BEST_GUESS' },
+      
       unitSystem: google.maps.UnitSystem.METRIC,
     }, (resp, status) => {
       if (status !== 'OK' || !resp?.rows?.[0]?.elements?.[0]) { resolve(null); return; }
@@ -1649,7 +1649,7 @@ async function renderRouteMap(stops, containerId='route-map') {
       destination: points[points.length-1],
       waypoints,
       travelMode: 'DRIVING',
-      drivingOptions: { departureTime: new Date(), trafficModel: 'BEST_GUESS' },
+      
     }, (res, status) => {
       if (status === 'OK') directionsRenderer.setDirections(res);
     });
@@ -1708,7 +1708,7 @@ async function optimizeRouteOrder(stops) {
       origin: wh, destination: wh,
       waypoints, optimizeWaypoints: true,
       travelMode: 'DRIVING',
-      drivingOptions: { departureTime: new Date(), trafficModel: 'BEST_GUESS' }
+      
     }, (res, status) => {
       if (status !== 'OK') { alert('فشل تحسين المسار: '+status); resolve(null); return; }
       const order = res.routes[0].waypoint_order;
