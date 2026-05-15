@@ -618,7 +618,7 @@ let distanceMatrixCache = {}; // key: "lat1,lng1|lat2,lng2" → {distance_m, dur
 let currentRouteOrder = null; // ترتيب الفروع المحسّن من Routes API
 let driverActiveTrip = null;  // الرحلة الحالية للسائق
 
-function loadCfg() {
+async function loadCfgFromServer() {  try {    const r = await fetch(getAPI() + '?action=getSettings');    const j = await r.json();    if (j.settings && typeof j.settings === 'object') {      const fresh = j.settings;      if (!fresh.mapsKey) fresh.mapsKey = '';      if (!fresh.buses)   fresh.buses   = JSON.parse(JSON.stringify(DEFAULT_BUSES));      if (!fresh.branches)fresh.branches= JSON.parse(JSON.stringify(DEFAULT_BRANCHES));      cfg = fresh;      localStorage.setItem('umq_cfg', JSON.stringify(cfg));      console.log('[UMQ] Loaded settings from server');      return true;    } else if (j.settings === null) {      console.log('[UMQ] Server empty, pushing local settings (migration)');      await pushCfgToServer();      return false;    }  } catch (e) { console.warn('[UMQ] loadCfgFromServer:', e.message); }  return false;}async function pushCfgToServer() {  try {    await fetch(getAPI() + '?action=saveSettings', {      method: 'POST',      headers: { 'Content-Type': 'text/plain;charset=utf-8' },      body: JSON.stringify(cfg)    });    console.log('[UMQ] Settings pushed to server');  } catch (e) { console.warn('[UMQ] pushCfgToServer:', e.message); }}function loadCfg() {
   try {
     const s = localStorage.getItem('umq_cfg');
     if (s) {
@@ -637,7 +637,7 @@ function saveCfg() {
   cfg.time = document.getElementById('cfg-time')?.value || '07:00';
   cfg.api  = document.getElementById('cfg-api')?.value?.trim() || DEFAULT_API;
   const mk = document.getElementById('cfg-maps-key')?.value?.trim();
-  if (mk !== undefined) cfg.mapsKey = mk;
+  if (mk !== undefined) cfg.mapsKey = mk; clearTimeout(window.__cfgPushTimer); window.__cfgPushTimer = setTimeout(pushCfgToServer, 800);
   localStorage.setItem('umq_cfg', JSON.stringify(cfg));
 }
 
@@ -676,7 +676,7 @@ document.getElementById('trip-date').value =
 async function init(retry=0) {
   document.getElementById('stxt').textContent = 'جاري التحميل...';
   try {
-    const api = getAPI();
+    const api = getAPI(); await loadCfgFromServer();
 
     // نجرب نجيب البيانات
     const r1 = await fetch(api + '?action=data');
@@ -788,7 +788,7 @@ async function loadOps() {
   // لو البيانات ما وصلت بعد، نحاول نجيبها أولاً
   if (!appData) {
     try {
-      const api = getAPI();
+      const api = getAPI(); await loadCfgFromServer();
       const r = await fetch(api + '?action=data');
       const j = await r.json();
       if (j.error) throw new Error(j.error);
@@ -1465,7 +1465,7 @@ function applySettings() {
   }
 
   saveCfg();
-  localStorage.setItem('umq_cfg',JSON.stringify(cfg));
+  localStorage.setItem('umq_cfg',JSON.stringify(cfg)); pushCfgToServer();
   if (appData) renderOV();
   showMsg('تم الحفظ والتطبيق ✓','ok');
   setTimeout(()=>showPg('ops',document.querySelectorAll('.nb')[0]),600);
