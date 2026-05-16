@@ -618,7 +618,8 @@ let distanceMatrixCache = {}; // key: "lat1,lng1|lat2,lng2" → {distance_m, dur
 let currentRouteOrder = null; // ترتيب الفروع المحسّن من Routes API
 let driverActiveTrip = null;  // الرحلة الحالية للسائق
 
-async function loadCfgFromServer() {  try {    const r = await fetch(getAPI() + '?action=getSettings');    const j = await r.json();    if (j.settings && typeof j.settings === 'object') {      const fresh = j.settings;      if (!fresh.mapsKey) fresh.mapsKey = '';      if (!fresh.buses)   fresh.buses   = JSON.parse(JSON.stringify(DEFAULT_BUSES));      if (!fresh.branches)fresh.branches= JSON.parse(JSON.stringify(DEFAULT_BRANCHES));      cfg = fresh;      localStorage.setItem('umq_cfg', JSON.stringify(cfg));      console.log('[UMQ] Loaded settings from server');      return true;    } else if (j.settings === null) {      console.log('[UMQ] Server empty, pushing local settings (migration)');      await pushCfgToServer();      return false;    }  } catch (e) { console.warn('[UMQ] loadCfgFromServer:', e.message); }  return false;}async function pushCfgToServer() {  try {    await fetch(getAPI() + '?action=saveSettings', {      method: 'POST',      headers: { 'Content-Type': 'text/plain;charset=utf-8' },      body: JSON.stringify(cfg)    });    console.log('[UMQ] Settings pushed to server');  } catch (e) { console.warn('[UMQ] pushCfgToServer:', e.message); }}function loadCfg() {
+function loadCfg() {
+  // أولاً نحاول من localStorage (كاش للسرعة)، السيرفر يحدّثها بعد init
   try {
     const s = localStorage.getItem('umq_cfg');
     if (s) {
@@ -631,14 +632,58 @@ async function loadCfgFromServer() {  try {    const r = await fetch(getAPI() + 
   return { branches: JSON.parse(JSON.stringify(DEFAULT_BRANCHES)), buses: JSON.parse(JSON.stringify(DEFAULT_BUSES)), cap:4.5, hrs:8, time:'07:00', api: DEFAULT_API, mapsKey:'' };
 }
 
+// جلب الإعدادات من السيرفر (Google Sheets) — تُستدعى عند بدء التشغيل
+async function loadCfgFromServer() {
+  try {
+    const r = await fetch(getAPI() + '?action=getSettings');
+    const j = await r.json();
+    if (j.settings && typeof j.settings === 'object') {
+      // دمج مع الافتراضيات لضمان وجود كل الحقول
+      const fresh = j.settings;
+      if (!fresh.mapsKey) fresh.mapsKey = '';
+      if (!fresh.buses)   fresh.buses   = JSON.parse(JSON.stringify(DEFAULT_BUSES));
+      if (!fresh.branches)fresh.branches= JSON.parse(JSON.stringify(DEFAULT_BRANCHES));
+      cfg = fresh;
+      localStorage.setItem('umq_cfg', JSON.stringify(cfg));
+      console.log('[UMQ] Loaded settings from server');
+      return true;
+    } else if (j.settings === null) {
+      // السيرفر فاضي — لأول مرة، نرفع الإعدادات الحالية للسيرفر (ترحيل)
+      console.log('[UMQ] Server empty, pushing local settings to server (migration)');
+      await pushCfgToServer();
+      return false;
+    }
+  } catch (e) {
+    console.warn('[UMQ] Could not load settings from server:', e.message);
+  }
+  return false;
+}
+
+// رفع الإعدادات للسيرفر (Google Sheets) — async background
+async function pushCfgToServer() {
+  try {
+    await fetch(getAPI() + '?action=saveSettings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(cfg)
+    });
+    console.log('[UMQ] Settings pushed to server');
+  } catch (e) {
+    console.warn('[UMQ] Failed to push settings:', e.message);
+  }
+}
+
 function saveCfg() {
   cfg.cap  = parseFloat(document.getElementById('cfg-cap')?.value) || 4.5;
   cfg.hrs  = parseFloat(document.getElementById('cfg-hrs')?.value) || 8;
   cfg.time = document.getElementById('cfg-time')?.value || '07:00';
   cfg.api  = document.getElementById('cfg-api')?.value?.trim() || DEFAULT_API;
   const mk = document.getElementById('cfg-maps-key')?.value?.trim();
-  if (mk !== undefined) cfg.mapsKey = mk; clearTimeout(window.__cfgPushTimer); window.__cfgPushTimer = setTimeout(pushCfgToServer, 800);
+  if (mk !== undefined) cfg.mapsKey = mk;
   localStorage.setItem('umq_cfg', JSON.stringify(cfg));
+  // ادفع للسيرفر بدون انتظار (debounced)
+  clearTimeout(window.__cfgPushTimer);
+  window.__cfgPushTimer = setTimeout(pushCfgToServer, 800);
 }
 
 // helper مفقود — getStableVol: يرجّع الحجم المتوقع لفرع
@@ -676,7 +721,10 @@ document.getElementById('trip-date').value =
 async function init(retry=0) {
   document.getElementById('stxt').textContent = 'جاري التحميل...';
   try {
-    const api = getAPI(); await loadCfgFromServer();
+    const api = getAPI();
+
+    // أولاً: جلب الإعدادات المشتركة من السيرفر (يحدّث cfg لو موجود)
+    await loadCfgFromServer();
 
     // نجرب نجيب البيانات
     const r1 = await fetch(api + '?action=data');
@@ -788,7 +836,7 @@ async function loadOps() {
   // لو البيانات ما وصلت بعد، نحاول نجيبها أولاً
   if (!appData) {
     try {
-      const api = getAPI(); await loadCfgFromServer();
+      const api = getAPI();
       const r = await fetch(api + '?action=data');
       const j = await r.json();
       if (j.error) throw new Error(j.error);
@@ -1002,23 +1050,43 @@ async function confDel(dv,bid,vol,bc,wh,st) {
 
 function routeHTML(orders,st) {
   const [sh,sm]=st.split(':').map(Number);
-  let c=sh*60+sm+10;
+  const startMin=sh*60+sm;
+  // قراءة أوقات التحميل/التنزيل من الإعدادات (افتراضي 10 دقايق لكل عملية)
+  const loadT = parseFloat(cfg.loadTime) || 10;
+  const unCon = parseFloat(cfg.unloadCon) || 10;
+  const unBen = parseFloat(cfg.unloadBen) || 10;
+  // التحميل في المستودع = 10 دقائق × عدد الفروع اللي تحتاج استهلاكيات
+  const conCount = orders.length; // كل الطلبات استهلاكيات
+  const benCount = orders.filter(o => { const br=getBr(o.id); return br && br.ben > 0; }).length;
+  const initialLoad = conCount * loadT;
+  const benLoadAtSrc = benCount * loadT;
+  let c=startMin+initialLoad;
   const sorted=[...orders].sort((a,b)=>a.dist-b.dist);
   let benDone=false;
   let h=`<div class="sec-title">مسار الرحلة</div><div class="card">
-    <div class="card-header"><div class="ch-title">تسلسل المحطات</div><div class="ch-meta">انطلاق ${fmtT(sh*60+sm)}</div></div>
+    <div class="card-header"><div class="ch-title">تسلسل المحطات</div><div class="ch-meta">انطلاق ${fmtT(startMin)} · تحميل ${initialLoad}د</div></div>
     <div class="stop"><div class="sl"><div class="sdot" style="background:var(--mu)"></div><div class="sline"></div></div>
-      <div class="sb"><div class="sname">2.3 — الشعلة</div><div class="smeta"><span class="pill p-src">انطلاق + تحميل</span></div></div>
-      <div class="stime">${fmtT(sh*60+sm)}</div></div>`;
+      <div class="sb"><div class="sname">2.3 — الشعلة</div><div class="smeta"><span class="pill p-src">انطلاق + تحميل (${initialLoad}د لـ ${conCount} فرع)</span></div></div>
+      <div class="stime">${fmtT(startMin)}</div></div>`;
   sorted.forEach((o,i)=>{
-    if (!benDone&&o.dist>=15) { c+=15; h+=`<div class="stop"><div class="sl"><div class="sdot" style="background:var(--ac)"></div><div class="sline"></div></div>
-      <div class="sb"><div class="sname">1.2 — الشمالية</div><div class="smeta"><span class="pill p-src">تحميل بن</span></div></div>
-      <div class="stime">${fmtT(c)}</div></div>`; benDone=true; }
+    if (!benDone&&o.dist>=15&&benCount>0) {
+      c+=benLoadAtSrc;
+      h+=`<div class="stop"><div class="sl"><div class="sdot" style="background:var(--ac)"></div><div class="sline"></div></div>
+        <div class="sb"><div class="sname">1.2 — الشمالية</div><div class="smeta"><span class="pill p-src">تحميل بن (${benLoadAtSrc}د لـ ${benCount} فرع)</span></div></div>
+        <div class="stime">${fmtT(c)}</div></div>`;
+      benDone=true;
+    }
     const tr=i===0?o.dist*1.8:Math.abs(o.dist-(sorted[i-1]?.dist||0))*1.5+5;
-    c+=Math.round(tr); const arr=c; c+=20;
+    c+=Math.round(tr); const arr=c;
+    const br=getBr(o.id);
+    const hasBen=br && br.ben > 0;
+    const stopTime = unCon + (hasBen ? unBen : 0);
+    c+=stopTime;
+    const stopLabel = hasBen ? `استهلاكيات + بن (${stopTime}د)` : `استهلاكيات (${stopTime}د)`;
+    const pillClass = hasBen ? 'p-both' : 'p-con';
     h+=`<div class="stop"><div class="sl"><div class="sdot" style="background:var(--gn)"></div><div class="sline"></div></div>
       <div class="sb"><div class="sname">${o.id} — ${o.name}</div>
-      <div class="smeta"><span class="pill p-con">استهلاكيات</span><span>${o.dist} كم</span><span>${o.vol.toFixed(2)} م³</span></div></div>
+      <div class="smeta"><span class="pill ${pillClass}">${stopLabel}</span><span>${o.dist} كم</span><span>${o.vol.toFixed(2)} م³</span></div></div>
       <div class="stime">${fmtT(arr)}</div></div>`;
   });
   c+=25;
@@ -1031,13 +1099,19 @@ function routeHTML(orders,st) {
 function splitHTML(orders,bc,wh,st) {
   const [sh,sm]=st.split(':').map(Number);
   const start=sh*60+sm;
+  const loadT = parseFloat(cfg.loadTime) || 10;
+  const unCon = parseFloat(cfg.unloadCon) || 10;
+  const unBen = parseFloat(cfg.unloadBen) || 10;
   const sorted=[...orders].sort((a,b)=>a.dist-b.dist);
   const t1=[],t2=[]; let l1=0;
   // نحسب الحمولة شاملة البن
   sorted.forEach(o=>{ const total=o.vol+calcBenVol(o.id); if(l1+total<=bc){t1.push(o);l1+=total;}else t2.push(o); });
-  const t1m=30+t1.reduce((s,o)=>s+o.dist*1.8+20,0);
+  // وقت كل رحلة = تحميل + سفر + تنزيل
+  const stopTime = (o) => { const br=getBr(o.id); return unCon + (br&&br.ben>0?unBen:0); };
+  const tripTime = (list) => list.length*loadT + list.reduce((s,o)=>s+o.dist*1.8+stopTime(o), 0);
+  const t1m=tripTime(t1);
   const t2s=start+t1m;
-  const t2m=30+t2.reduce((s,o)=>s+o.dist*1.8+20,0);
+  const t2m=tripTime(t2);
   const total=t1m+t2m;
   const ok=total<=wh*60;
   let h=`<div class="sec-title">خطة التقسيم</div>
@@ -1465,7 +1539,13 @@ function applySettings() {
   }
 
   saveCfg();
-  localStorage.setItem('umq_cfg',JSON.stringify(cfg)); pushCfgToServer();
+  localStorage.setItem('umq_cfg',JSON.stringify(cfg));
+  // ادفع فوراً للسيرفر (بدون debounce) لأن المستخدم ضغط حفظ صراحة
+  pushCfgToServer().then(() => {
+    showMsg('تم الحفظ والتطبيق + مزامنة السيرفر ✓','ok');
+  }).catch(() => {
+    showMsg('تم الحفظ محلياً (فشلت مزامنة السيرفر)','err');
+  });
   if (appData) renderOV();
   showMsg('تم الحفظ والتطبيق ✓','ok');
   setTimeout(()=>showPg('ops',document.querySelectorAll('.nb')[0]),600);
@@ -1565,7 +1645,7 @@ async function getRealTravelTime(fromCoords, toCoords) {
       origins: [fromCoords],
       destinations: [toCoords],
       travelMode: 'DRIVING',
-      
+      // drivingOptions حُذف — يتطلب فوترة Premium ويُفشل الطلب صامتاً في الحساب القياسي
       unitSystem: google.maps.UnitSystem.METRIC,
     }, (resp, status) => {
       if (status !== 'OK' || !resp?.rows?.[0]?.elements?.[0]) { resolve(null); return; }
@@ -1649,9 +1729,9 @@ async function renderRouteMap(stops, containerId='route-map') {
       destination: points[points.length-1],
       waypoints,
       travelMode: 'DRIVING',
-      
     }, (res, status) => {
       if (status === 'OK') directionsRenderer.setDirections(res);
+      else console.warn('Directions failed:', status);
     });
   }
 
@@ -1707,8 +1787,7 @@ async function optimizeRouteOrder(stops) {
     ds.route({
       origin: wh, destination: wh,
       waypoints, optimizeWaypoints: true,
-      travelMode: 'DRIVING',
-      
+      travelMode: 'DRIVING'
     }, (res, status) => {
       if (status !== 'OK') { alert('فشل تحسين المسار: '+status); resolve(null); return; }
       const order = res.routes[0].waypoint_order;
