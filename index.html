@@ -1728,9 +1728,25 @@ async function fetchTripMatrix(orders) {
 
   const wh = { id: 'WAREHOUSE', lat: WAREHOUSE_LAT, lng: WAREHOUSE_LNG };
   const points = [wh];
+  const seenIds = new Set(['WAREHOUSE']);
+
+  // أضف مصدر البن (الشمالية) دائماً — حتى لو ما عنده طلب — لأنه محطة وسطية
+  const benSource = (cfg.branches || []).find(b => b.isBenSource);
+  if (benSource && !seenIds.has(benSource.id)) {
+    const c = branchCoords(benSource.id);
+    if (c) {
+      points.push({ id: benSource.id, lat: c.lat, lng: c.lng });
+      seenIds.add(benSource.id);
+    }
+  }
+
   for (const o of orders) {
+    if (seenIds.has(o.id)) continue;
     const c = branchCoords(o.id);
-    if (c) points.push({ id: o.id, lat: c.lat, lng: c.lng });
+    if (c) {
+      points.push({ id: o.id, lat: c.lat, lng: c.lng });
+      seenIds.add(o.id);
+    }
   }
   if (points.length <= 1) return null;
 
