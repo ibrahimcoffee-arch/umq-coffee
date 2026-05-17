@@ -865,7 +865,7 @@ async function loadOps() {
   setTimeout(() => buildOps(dv), 100);
 }
 
-function buildOps(dv) {
+async function buildOps(dv) {
   const raw = getOrders(new Date(dv));
   currentOrders = Object.entries(raw)
     .filter(([id]) => { const b=getBr(id); return b&&!b.isWarehouse&&b.active&&b.con>0; })
@@ -881,6 +881,28 @@ function buildOps(dv) {
     });
   const active = currentOrders.filter(o=>!o.confirmed);
   if (selectedBranches.size===0) active.forEach(o=>selectedBranches.add(o.id));
+
+  // جلب المسافات الفعلية من Google Maps (مستودع + كل الفروع)
+  if (cfg.mapsKey && currentOrders.length > 0) {
+    document.getElementById('ops-out').innerHTML = `<div class="loading"><div class="spinner"></div><span>جاري حساب المسافات من Google Maps...</span></div>`;
+    try {
+      window.tripMatrix = await fetchTripMatrix(currentOrders);
+      if (window.tripMatrix) {
+        // حدّث dist لكل order بالمسافة الفعلية من المستودع
+        currentOrders.forEach(o => {
+          const dm = matrixGet('WAREHOUSE', o.id);
+          if (dm) {
+            o.dist = +(dm.distance_m / 1000).toFixed(1);
+            o.realDur = Math.round(dm.duration_s / 60);
+            o.fromGoogle = true;
+          }
+        });
+      }
+    } catch(e) {
+      console.warn('[UMQ] fetchTripMatrix failed:', e);
+    }
+  }
+
   const bc = parseFloat(document.getElementById('bus-cap').value)||4.5;
   const wh = parseFloat(document.getElementById('work-hrs').value)||8;
   const st = document.getElementById('start-time').value||'07:00';
@@ -1068,28 +1090,45 @@ function routeHTML(orders,st) {
     <div class="stop"><div class="sl"><div class="sdot" style="background:var(--mu)"></div><div class="sline"></div></div>
       <div class="sb"><div class="sname">2.3 — الشعلة</div><div class="smeta"><span class="pill p-src">انطلاق + تحميل (${initialLoad}د لـ ${conCount} فرع)</span></div></div>
       <div class="stime">${fmtT(startMin)}</div></div>`;
+  // مساعد: يجلب وقت السفر من المصفوفة (Google) أو يقدر باستخدام heuristic
+  const getTravel = (fromId, toId) => {
+    const dm = matrixGet(fromId, toId);
+    if (dm) return { min: Math.round(dm.duration_s / 60), km: +(dm.distance_m / 1000).toFixed(1), real: true };
+    const target = sorted.find(x => x.id === toId);
+    if (!target) return { min: 15, km: 0, real: false };
+    return { min: Math.round(target.dist * 1.8), km: target.dist, real: false };
+  };
+  let prevId = 'WAREHOUSE';
   sorted.forEach((o,i)=>{
     if (!benDone&&o.dist>=15&&benCount>0) {
-      c+=benLoadAtSrc;
+      const trSrc = getTravel(prevId, '1.2');
+      c += trSrc.min;
+      c += benLoadAtSrc;
       h+=`<div class="stop"><div class="sl"><div class="sdot" style="background:var(--ac)"></div><div class="sline"></div></div>
-        <div class="sb"><div class="sname">1.2 — الشمالية</div><div class="smeta"><span class="pill p-src">تحميل بن (${benLoadAtSrc}د لـ ${benCount} فرع)</span></div></div>
+        <div class="sb"><div class="sname">1.2 — الشمالية</div><div class="smeta"><span class="pill p-src">تحميل بن (${benLoadAtSrc}د لـ ${benCount} فرع)</span>${trSrc.real?`<span>${trSrc.km}كم 🗺️ · ${trSrc.min}د سفر</span>`:''}</div></div>
         <div class="stime">${fmtT(c)}</div></div>`;
       benDone=true;
+      prevId = '1.2';
     }
-    const tr=i===0?o.dist*1.8:Math.abs(o.dist-(sorted[i-1]?.dist||0))*1.5+5;
-    c+=Math.round(tr); const arr=c;
+    const tr = getTravel(prevId, o.id);
+    c += tr.min;
+    const arr = c;
     const br=getBr(o.id);
     const hasBen=br && br.ben > 0;
     const stopTime = unCon + (hasBen ? unBen : 0);
     c+=stopTime;
     const stopLabel = hasBen ? `استهلاكيات + بن (${stopTime}د)` : `استهلاكيات (${stopTime}د)`;
     const pillClass = hasBen ? 'p-both' : 'p-con';
+    const distBadge = tr.real ? `${tr.km} كم 🗺️` : `${o.dist} كم`;
     h+=`<div class="stop"><div class="sl"><div class="sdot" style="background:var(--gn)"></div><div class="sline"></div></div>
       <div class="sb"><div class="sname">${o.id} — ${o.name}</div>
-      <div class="smeta"><span class="pill ${pillClass}">${stopLabel}</span><span>${o.dist} كم</span><span>${o.vol.toFixed(2)} م³</span></div></div>
+      <div class="smeta"><span class="pill ${pillClass}">${stopLabel}</span><span>${distBadge}</span><span>${tr.min}د سفر</span><span>${o.vol.toFixed(2)} م³</span></div></div>
       <div class="stime">${fmtT(arr)}</div></div>`;
+    prevId = o.id;
   });
-  c+=25;
+  // العودة للمستودع
+  const back = getTravel(prevId, 'WAREHOUSE');
+  c += back.min;
   h+=`<div class="stop"><div class="sl"><div class="sdot" style="background:var(--mu)"></div></div>
     <div class="sb"><div class="sname">2.3 — الشعلة</div><div class="smeta"><span>عودة</span></div></div>
     <div class="stime">${fmtT(c)}</div></div></div>`;
@@ -1452,17 +1491,25 @@ function haversine(lat1, lng1, lat2, lng2) {
 }
 
 function extractCoords(input) {
-  // رابط Google Maps
-  const llMatch = input.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (!input) return null;
+  const s = String(input).trim();
+
+  // 1) أعلى أولوية: الإحداثيات الفعلية للمكان في رابط Google Maps !3d{lat}!4d{lng}
+  // هذي تظهر بعد ما المستخدم يفتح place page — الأكثر دقة
+  const placeMatch = s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  if (placeMatch) return { lat: parseFloat(placeMatch[1]), lng: parseFloat(placeMatch[2]) };
+
+  // 2) إحداثيات في query string: ?q=lat,lng أو &q=lat,lng
+  const qMatch = s.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (qMatch) return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) };
+
+  // 3) مركز الخريطة @lat,lng (أقل دقة — مركز الكاميرا وليس المكان نفسه)
+  const llMatch = s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
   if (llMatch) return { lat: parseFloat(llMatch[1]), lng: parseFloat(llMatch[2]) };
 
-  // إحداثيات مباشرة: lat,lng
-  const coordMatch = input.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
+  // 4) إحداثيات مباشرة: lat,lng (الأنظف — انسخها من Maps بـ right-click → copy coordinates)
+  const coordMatch = s.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
   if (coordMatch) return { lat: parseFloat(coordMatch[1]), lng: parseFloat(coordMatch[2]) };
-
-  // رابط مختصر — نحاول نسحب من الـ URL
-  const dMatch = input.match(/place\/[^@]*@(-?\d+\.\d+),(-?\d+\.\d+)/);
-  if (dMatch) return { lat: parseFloat(dMatch[1]), lng: parseFloat(dMatch[2]) };
 
   return null;
 }
@@ -1669,6 +1716,91 @@ try {
   const c = localStorage.getItem('umq_dm_cache');
   if (c) distanceMatrixCache = JSON.parse(c);
 } catch(e){}
+
+// مصفوفة المسافات للرحلة الحالية (نقاط × نقاط)
+window.tripMatrix = null;
+
+// جلب مصفوفة المسافات الكاملة من Google Maps للمستودع + كل الفروع
+// يستخدم cache لتقليل API calls، يدعم رحلات لـ 24 فرع (Google limit: 25 origins × 25 destinations)
+async function fetchTripMatrix(orders) {
+  if (!cfg.mapsKey) return null;
+  try { await loadGoogleMaps(); } catch(e) { return null; }
+
+  const wh = { id: 'WAREHOUSE', lat: WAREHOUSE_LAT, lng: WAREHOUSE_LNG };
+  const points = [wh];
+  for (const o of orders) {
+    const c = branchCoords(o.id);
+    if (c) points.push({ id: o.id, lat: c.lat, lng: c.lng });
+  }
+  if (points.length <= 1) return null;
+
+  // ابني المصفوفة من الكاش، وجمّع الباقي للـ fetch
+  const matrix = {};
+  const toFetch = []; // {from, to, key}
+  for (const from of points) {
+    matrix[from.id] = {};
+    for (const to of points) {
+      if (from.id === to.id) { matrix[from.id][to.id] = { distance_m: 0, duration_s: 0 }; continue; }
+      const key = `${from.lat.toFixed(5)},${from.lng.toFixed(5)}|${to.lat.toFixed(5)},${to.lng.toFixed(5)}`;
+      if (distanceMatrixCache[key]) {
+        matrix[from.id][to.id] = distanceMatrixCache[key];
+      } else {
+        toFetch.push({ from, to, key });
+      }
+    }
+  }
+
+  if (toFetch.length === 0) {
+    console.log('[UMQ] Trip matrix from cache only');
+    return matrix;
+  }
+
+  // جمّع المفقود حسب الـ origin (لتقليل عدد الـ API calls)
+  const byOrigin = {};
+  for (const pair of toFetch) {
+    if (!byOrigin[pair.from.id]) byOrigin[pair.from.id] = { from: pair.from, dests: [] };
+    byOrigin[pair.from.id].dests.push(pair);
+  }
+
+  console.log(`[UMQ] Fetching ${toFetch.length} new distances from Google in ${Object.keys(byOrigin).length} batches`);
+
+  const svc = new google.maps.DistanceMatrixService();
+  for (const fromId in byOrigin) {
+    const group = byOrigin[fromId];
+    const destinations = group.dests.map(p => ({ lat: p.to.lat, lng: p.to.lng }));
+    await new Promise((resolve) => {
+      svc.getDistanceMatrix({
+        origins: [{ lat: group.from.lat, lng: group.from.lng }],
+        destinations,
+        travelMode: 'DRIVING',
+        unitSystem: google.maps.UnitSystem.METRIC,
+      }, (resp, status) => {
+        if (status === 'OK' && resp?.rows?.[0]?.elements) {
+          resp.rows[0].elements.forEach((el, i) => {
+            if (el.status === 'OK') {
+              const pair = group.dests[i];
+              const data = { distance_m: el.distance.value, duration_s: el.duration.value };
+              matrix[pair.from.id][pair.to.id] = data;
+              distanceMatrixCache[pair.key] = data;
+            }
+          });
+        } else {
+          console.warn('[UMQ] DM failed:', status);
+        }
+        resolve();
+      });
+    });
+  }
+
+  try { localStorage.setItem('umq_dm_cache', JSON.stringify(distanceMatrixCache)); } catch(e){}
+  return matrix;
+}
+
+// مساعد: يجلب وقت/مسافة بين نقطتين من المصفوفة الحالية
+function matrixGet(fromId, toId) {
+  if (!window.tripMatrix || !window.tripMatrix[fromId]) return null;
+  return window.tripMatrix[fromId][toId] || null;
+}
 
 // ===================================================================
 // ===== MAP RENDERING ===============================================
