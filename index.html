@@ -351,11 +351,12 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 <div id="pg-ops" class="pg active">
 <div class="wrap">
   <div class="datebar">
-    <div class="db-field"><div class="db-label">تاريخ التوريد</div><input type="date" id="trip-date" class="db-input"></div>
+    <div class="db-field"><div class="db-label">تاريخ التوريد</div><input type="date" id="trip-date" class="db-input" onchange="loadOps()"></div>
     <div class="db-field"><div class="db-label">سعة الباص م³</div><input type="number" id="bus-cap" value="4.5" step="0.5" min="1" max="20" class="db-input" style="width:78px"></div>
     <div class="db-field"><div class="db-label">ساعات العمل</div><input type="number" id="work-hrs" value="8" step="1" min="4" max="16" class="db-input" style="width:68px"></div>
     <div class="db-field"><div class="db-label">وقت الانطلاق</div><input type="time" id="start-time" value="07:00" class="db-input"></div>
     <button class="go-btn" onclick="loadOps()">احسب ↗</button>
+    <button id="refresh-btn" class="abtn" onclick="refreshData()" title="إعادة جلب الطلبات من Sheet1 (تجاوز الكاش)" style="margin-top:auto">↻ تحديث</button>
   </div>
   <div id="ops-out"><div class="empty"><div class="empty-icon">🚌</div><div class="empty-title">اختر تاريخ التوريد</div><div class="empty-sub">ستظهر هنا الطلبات وخطة الرحلة</div></div></div>
 </div>
@@ -712,6 +713,44 @@ function resetCfg() {
 function getBr(id) { return cfg.branches.find(b => b.id === id); }
 function getAPI() { return cfg.api || DEFAULT_API; }
 
+// helper: يبني URL مع cache-bust + خيار fresh لتجاوز كاش Apps Script
+function apiUrl(action, opts = {}) {
+  const params = new URLSearchParams({ action, _t: Date.now() });
+  if (opts.fresh) params.set('fresh', '1');
+  Object.entries(opts.extra || {}).forEach(([k, v]) => params.set(k, v));
+  return getAPI() + '?' + params.toString();
+}
+
+// إعادة جلب البيانات من السيرفر مع force refresh (publishData على الجانب الآخر)
+async function refreshData() {
+  const btn = document.getElementById('refresh-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'جاري التحديث...'; }
+  document.getElementById('stxt').textContent = 'جاري التحديث...';
+  try {
+    const r = await fetch(apiUrl('data', { fresh: true }));
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    appData = j;
+    try {
+      const r2 = await fetch(apiUrl('deliveries'));
+      const j2 = await r2.json();
+      deliveries = {};
+      (j2.deliveries || []).forEach(d => { deliveries[d.tripId] = d; });
+    } catch(e) { deliveries = {}; }
+    document.getElementById('stxt').textContent = 'آخر تحديث: ' + new Date().toLocaleTimeString('ar-SA', {hour:'2-digit', minute:'2-digit'});
+    // أعد بناء الـ ops لو في تاريخ مختار
+    const dv = document.getElementById('trip-date')?.value;
+    if (dv && document.getElementById('pg-ops').classList.contains('active')) {
+      selectedBranches = new Set();
+      await buildOps(dv);
+    }
+  } catch(e) {
+    document.getElementById('stxt').textContent = 'فشل التحديث: ' + e.message;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↻ تحديث'; }
+  }
+}
+
 // ===== INIT =====
 const today = new Date();
 const pad = n => String(n).padStart(2,'0');
@@ -727,7 +766,7 @@ async function init(retry=0) {
     await loadCfgFromServer();
 
     // نجرب نجيب البيانات
-    const r1 = await fetch(api + '?action=data');
+    const r1 = await fetch(apiUrl('data'));
     const j1 = await r1.json();
 
     if (j1.error) throw new Error(j1.error);
@@ -735,7 +774,7 @@ async function init(retry=0) {
 
     // نجيب التوصيلات بشكل منفصل (مو ضروري تنجح)
     try {
-      const r2 = await fetch(api + '?action=deliveries');
+      const r2 = await fetch(apiUrl('deliveries'));
       const j2 = await r2.json();
       deliveries = {};
       (j2.deliveries||[]).forEach(d => { deliveries[d.tripId] = d; });
@@ -837,12 +876,12 @@ async function loadOps() {
   if (!appData) {
     try {
       const api = getAPI();
-      const r = await fetch(api + '?action=data');
+      const r = await fetch(apiUrl('data'));
       const j = await r.json();
       if (j.error) throw new Error(j.error);
       appData = j;
       try {
-        const r2 = await fetch(api + '?action=deliveries');
+        const r2 = await fetch(apiUrl('deliveries'));
         const j2 = await r2.json();
         deliveries = {};
         (j2.deliveries||[]).forEach(d => { deliveries[d.tripId] = d; });
@@ -1287,7 +1326,7 @@ function selBr(id) {
 async function loadHistory() {
   document.getElementById('hist-out').innerHTML='<div class="loading"><div class="spinner"></div><span>جاري التحميل...</span></div>';
   try {
-    const r=await fetch(getAPI()+'?action=deliveries');
+    const r=await fetch(apiUrl('deliveries'));
     const d=await r.json();
     const dl=d.deliveries||[];
     if (!dl.length) { document.getElementById('hist-out').innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">لا يوجد سجل بعد</div></div>'; return; }
